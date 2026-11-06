@@ -103,7 +103,7 @@ func (a *App) Root() *cobra.Command {
 		},
 	}
 	root.PersistentFlags().StringVarP(&a.output, "output", "o", "table", "output format: table or json")
-	root.AddCommand(a.loginCmd(), a.logoutCmd(), a.whoamiCmd())
+	root.AddCommand(a.loginCmd(), a.logoutCmd(), a.whoamiCmd(), a.projectsCmd(), a.appsCmd())
 	return root
 }
 
