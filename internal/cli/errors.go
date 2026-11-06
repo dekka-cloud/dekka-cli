@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/dekka-cloud/dekka-cli/internal/api"
 )
@@ -15,10 +16,19 @@ type APIError struct {
 	Code      string
 	Message   string
 	RequestID string
+	// Hint is what to do next, when the CLI knows.
+	Hint string
 }
 
 func (e *APIError) Error() string {
-	msg := e.Message
+	if e.Hint != "" {
+		return e.detail() + ". " + e.Hint
+	}
+	return e.detail()
+}
+
+func (e *APIError) detail() string {
+	msg := strings.TrimSuffix(e.Message, ".")
 	if msg == "" {
 		msg = http.StatusText(e.Status)
 	}
@@ -38,7 +48,7 @@ func apiError(resp *http.Response, body []byte) error {
 		e.Code, e.Message, e.RequestID = env.Error.Code, env.Error.Message, env.Error.RequestId
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
-		e.Message += ". Run dekka login with a new key, or check DEKKA_TOKEN"
+		e.Hint = "Run dekka login with a new key, or check DEKKA_TOKEN."
 	}
 	return e
 }

@@ -51,7 +51,7 @@ func TestLoginRefusesAKeyTheAPIRejects(t *testing.T) {
 	if code := h.run("login", "--token", "dk_wrong_key"); code == 0 {
 		t.Fatal("login accepted a rejected key")
 	}
-	contains(t, h.err.String(), "The API key is invalid, expired or revoked.", "invalid_api_key", "req_1")
+	contains(t, h.err.String(), "The API key is invalid, expired or revoked", "invalid_api_key", "req_1")
 	if _, _, err := h.app.Store.Get(f.URL); !errors.Is(err, credentials.ErrNotFound) {
 		t.Fatalf("a rejected key was saved: %v", err)
 	}

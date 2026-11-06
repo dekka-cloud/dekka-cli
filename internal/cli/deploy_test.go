@@ -43,7 +43,7 @@ func TestDeployReportsTheAPIError(t *testing.T) {
 	if code := h.run("deploy", "api"); code == 0 {
 		t.Fatal("expected an error")
 	}
-	contains(t, h.err.String(), "Your role cannot deploy here. (forbidden, request req_9)")
+	contains(t, h.err.String(), "Your role cannot deploy here (forbidden, request req_9)")
 }
 
 func TestServiceNamesThatRepeatAcrossEnvironmentsAreRefused(t *testing.T) {
