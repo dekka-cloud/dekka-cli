@@ -113,7 +113,7 @@ func (s Store) readFile() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- the CLI's own credentials file
 	if errors.Is(err, fs.ErrNotExist) {
 		return map[string]string{}, nil
 	}
@@ -143,13 +143,13 @@ func (s Store) writeFile(keys map[string]string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if _, err := tmp.Write(append(raw, '\n')); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if err := tmp.Close(); err != nil {
