@@ -1,0 +1,9 @@
+# Generates the API client from the vendored public OpenAPI document.
+# Run `make generate` after `make sync-spec`; never edit client.gen.go by hand.
+package: api
+generate:
+  client: true
+  models: true
+output: client.gen.go
+output-options:
+  skip-prune: false
