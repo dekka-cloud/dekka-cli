@@ -13,7 +13,7 @@ func TestProjectsList(t *testing.T) {
 	if code := h.run("projects", "list"); code != 0 {
 		t.Fatalf("exit %d: %s", code, h.err)
 	}
-	contains(t, h.out.String(), "NAME", "shop", "gh-accra", "production, staging", projectID)
+	contains(t, h.out.String(), "NAME", "shop", "gh-1", "production, staging", projectID)
 
 	if code := h.run("projects", "list", "--output", "json"); code != 0 {
 		t.Fatalf("exit %d: %s", code, h.err)

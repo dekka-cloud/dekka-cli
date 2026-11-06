@@ -33,7 +33,7 @@ var meJSON = `{"user":{"id":"0b8f9a52-6f43-4c39-9a3a-2a1d1c7e0009","email":"ama@
 "features":{},"engine":{"kind":"dekka"},"has_passkey":false,"sign_in_methods":["email"]}`
 
 var projectJSON = `{"id":"` + projectID + `","organization_id":"` + orgID + `","name":"shop","slug":"shop","description":null,
-"region_id":"gh-accra","service_count":2,"status":"active","last_deployment":null,"created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:00:00Z",
+"region_id":"gh-1","service_count":2,"status":"active","last_deployment":null,"created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:00:00Z",
 "environments":[{"id":"` + prodEnvID + `","project_id":"` + projectID + `","name":"production","slug":"production","is_default":true,"kind":"production","ephemeral":false,"status":"active","forked_from_id":null,"created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:00:00Z"},
 {"id":"` + prevEnvID + `","project_id":"` + projectID + `","name":"staging","slug":"staging","is_default":false,"kind":"standard","ephemeral":false,"status":"active","forked_from_id":null,"created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:00:00Z"}]}`
 
@@ -43,7 +43,7 @@ func resourceJSON(id, env, kind, name, status, hostname string) string {
 		host = `"` + hostname + `"`
 	}
 	return `{"id":"` + id + `","project_id":"` + projectID + `","environment_id":"` + env + `","kind":"` + kind + `","name":"` + name + `","slug":"` + name + `",
-"region_id":"gh-accra","spec":{},"spec_version":1,"generation":1,"status":"` + status + `","status_reason":null,"observed":null,"active_operation":null,
+"region_id":"gh-1","spec":{},"spec_version":1,"generation":1,"status":"` + status + `","status_reason":null,"observed":null,"active_operation":null,
 "hostname":` + host + `,"public_domain":null,"subdomain":null,"private_hostname":null,"next_runs":null,"created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:00:00Z"}`
 }
 
