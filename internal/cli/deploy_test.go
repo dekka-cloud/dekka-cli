@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dekka-cloud/dekka-cli/internal/api"
@@ -101,7 +102,7 @@ func TestRollbackAsksNamingTheServiceAndDeployment(t *testing.T) {
 	if code := h.run("rollback", depID); code == 0 {
 		t.Fatal("a declined rollback succeeded")
 	}
-	contains(t, h.err.String(), "Roll back api in shop (production) to deployment "+depID, "main at 4f2a9c1", "current variables", "rollback cancelled")
+	contains(t, h.err.String(), "Roll back api in shop (production) to deployment "+depID, "main at 4f2a9c1", "variables return to the ones that deployment ran with", "Databases and their data are not changed", "rollback cancelled")
 	if f.called("POST /v1/deployments/" + depID + "/rollback") {
 		t.Fatal("a declined rollback reached the API")
 	}
@@ -111,6 +112,23 @@ func TestRollbackAsksNamingTheServiceAndDeployment(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, h.err)
 	}
 	contains(t, h.out.String(), "Started deployment "+newDepID+" of api, rolling back to "+depID)
+	if b := f.body("POST /v1/deployments/" + depID + "/rollback"); strings.Contains(b, "keep_current_variables") {
+		t.Fatalf("a default rollback asked to keep current variables: %s", b)
+	}
+}
+
+func TestRollbackCanKeepCurrentVariables(t *testing.T) {
+	f := rollbackAPI(t)
+	h := newHarness(t, f)
+	h.terminal = true
+	h.input("y\n")
+	if code := h.run("rollback", depID, "--keep-current-variables"); code != 0 {
+		t.Fatalf("exit %d: %s", code, h.err)
+	}
+	contains(t, h.err.String(), "keeps its current variables")
+	if b := f.body("POST /v1/deployments/" + depID + "/rollback"); !strings.Contains(b, `"keep_current_variables":true`) {
+		t.Fatalf("rollback body = %s", b)
+	}
 }
 
 func TestRollbackNeedsYesWithoutATerminal(t *testing.T) {

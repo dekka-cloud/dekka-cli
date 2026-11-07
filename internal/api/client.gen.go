@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -326,19 +327,19 @@ func (e CertificateStatus) Valid() bool {
 
 // Defines values for ChangeAction.
 const (
-	Create ChangeAction = "create"
-	Delete ChangeAction = "delete"
-	Update ChangeAction = "update"
+	ChangeActionCreate ChangeAction = "create"
+	ChangeActionDelete ChangeAction = "delete"
+	ChangeActionUpdate ChangeAction = "update"
 )
 
 // Valid indicates whether the value is a known member of the ChangeAction enum.
 func (e ChangeAction) Valid() bool {
 	switch e {
-	case Create:
+	case ChangeActionCreate:
 		return true
-	case Delete:
+	case ChangeActionDelete:
 		return true
-	case Update:
+	case ChangeActionUpdate:
 		return true
 	default:
 		return false
@@ -366,6 +367,21 @@ func (e ChangeTarget) Valid() bool {
 	case ChangeTargetVariable:
 		return true
 	case ChangeTargetVolume:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangesetEstimateInType.
+const (
+	Changeset ChangesetEstimateInType = "changeset"
+)
+
+// Valid indicates whether the value is a known member of the ChangesetEstimateInType enum.
+func (e ChangesetEstimateInType) Valid() bool {
+	switch e {
+	case Changeset:
 		return true
 	default:
 		return false
@@ -834,6 +850,27 @@ func (e EnvironmentOutStatus) Valid() bool {
 	case EnvironmentOutStatusActive:
 		return true
 	case EnvironmentOutStatusDeleting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EstimateLineOutAction.
+const (
+	EstimateLineOutActionCreate EstimateLineOutAction = "create"
+	EstimateLineOutActionDelete EstimateLineOutAction = "delete"
+	EstimateLineOutActionUpdate EstimateLineOutAction = "update"
+)
+
+// Valid indicates whether the value is a known member of the EstimateLineOutAction enum.
+func (e EstimateLineOutAction) Valid() bool {
+	switch e {
+	case EstimateLineOutActionCreate:
+		return true
+	case EstimateLineOutActionDelete:
+		return true
+	case EstimateLineOutActionUpdate:
 		return true
 	default:
 		return false
@@ -1668,6 +1705,36 @@ func (e RegionStatus) Valid() bool {
 	case RegionStatusPreview:
 		return true
 	case RegionStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ResizeEstimateInType.
+const (
+	Resize ResizeEstimateInType = "resize"
+)
+
+// Valid indicates whether the value is a known member of the ResizeEstimateInType enum.
+func (e ResizeEstimateInType) Valid() bool {
+	switch e {
+	case Resize:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ResourceEstimateInType.
+const (
+	ResourceEstimateInTypeResource ResourceEstimateInType = "resource"
+)
+
+// Valid indicates whether the value is a known member of the ResourceEstimateInType enum.
+func (e ResourceEstimateInType) Valid() bool {
+	switch e {
+	case ResourceEstimateInTypeResource:
 		return true
 	default:
 		return false
@@ -2780,6 +2847,16 @@ type ChangePlanRequest struct {
 // ChangeTarget defines model for ChangeTarget.
 type ChangeTarget string
 
+// ChangesetEstimateIn defines model for ChangesetEstimateIn.
+type ChangesetEstimateIn struct {
+	// ChangesetId A manual draft, or a template, Compose or blueprint plan
+	ChangesetId openapi_types.UUID      `json:"changeset_id"`
+	Type        ChangesetEstimateInType `json:"type"`
+}
+
+// ChangesetEstimateInType defines model for ChangesetEstimateIn.Type.
+type ChangesetEstimateInType string
+
 // ChangesetOut defines model for ChangesetOut.
 type ChangesetOut struct {
 	AppliedAt       *time.Time          `json:"applied_at"`
@@ -3227,6 +3304,19 @@ type DataLocationOut struct {
 // DataLocationSource defines model for DataLocationSource.
 type DataLocationSource string
 
+// DataTier defines model for DataTier.
+type DataTier struct {
+	// Id An immutable SKU. A change of price or allocation is a new id.
+	Id           string `json:"id"`
+	MemoryMib    int    `json:"memory_mib"`
+	MonthlyPrice string `json:"monthly_price"`
+	Name         string `json:"name"`
+
+	// StorageGb Postgres only
+	StorageGb *int   `json:"storage_gb,omitempty"`
+	Tier      string `json:"tier"`
+}
+
 // DayMetrics defines model for DayMetrics.
 type DayMetrics struct {
 	CostUsd *string            `json:"cost_usd,omitempty"`
@@ -3317,11 +3407,14 @@ type DeploymentOut struct {
 	Id            openapi_types.UUID      `json:"id"`
 
 	// ImageRef The image deployed. For image sources it is the image named in the spec (branch and commit are null); for GitHub sources it is the image the engine built, recorded once the deployment is healthy.
-	ImageRef     *string             `json:"image_ref"`
-	OperationId  *openapi_types.UUID `json:"operation_id"`
-	ProjectId    openapi_types.UUID  `json:"project_id"`
-	ResourceId   openapi_types.UUID  `json:"resource_id"`
-	ResourceName string              `json:"resource_name"`
+	ImageRef *string `json:"image_ref"`
+
+	// KeepCurrentVariables For rollbacks, true when it ran with the service's variables of the time rather than the variables of the deployment it rolled back to
+	KeepCurrentVariables bool                `json:"keep_current_variables"`
+	OperationId          *openapi_types.UUID `json:"operation_id"`
+	ProjectId            openapi_types.UUID  `json:"project_id"`
+	ResourceId           openapi_types.UUID  `json:"resource_id"`
+	ResourceName         string              `json:"resource_name"`
 
 	// RollbackOfId For rollbacks, the deployment whose image this redeployed
 	RollbackOfId *openapi_types.UUID `json:"rollback_of_id"`
@@ -3329,6 +3422,12 @@ type DeploymentOut struct {
 	Status       DeploymentStatus    `json:"status"`
 	Trigger      DeploymentTrigger   `json:"trigger"`
 	UpdatedAt    time.Time           `json:"updated_at"`
+
+	// VariablesChanged Whether the service's variables now differ from the ones this deployment was sent with. Null when they were not recorded, the service is deleted, or a reference no longer resolves.
+	VariablesChanged *bool `json:"variables_changed"`
+
+	// VariablesRecorded Whether Dekka recorded the variables this deployment was sent with, which a rollback to it restores. Values are never returned.
+	VariablesRecorded bool `json:"variables_recorded"`
 }
 
 // DeploymentStatus defines model for DeploymentStatus.
@@ -3560,6 +3659,66 @@ type ErrorBody struct {
 // ErrorEnvelope defines model for ErrorEnvelope.
 type ErrorEnvelope struct {
 	Error ErrorBody `json:"error"`
+}
+
+// EstimateLineOut defines model for EstimateLineOut.
+type EstimateLineOut struct {
+	Action            EstimateLineOutAction `json:"action"`
+	BillsWhileStopped bool                  `json:"bills_while_stopped"`
+
+	// CurrentMonthly Today, for resizes and changesets
+	CurrentMonthly *string `json:"current_monthly"`
+	Detail         string  `json:"detail"`
+
+	// Included Covered by the plan the organization already pays for
+	Included bool `json:"included"`
+
+	// Kind A resource kind, service for applications, workers and jobs, or volume
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+
+	// Monthly After the change. Null when the catalogue has no price for it.
+	Monthly *string `json:"monthly"`
+
+	// Resource The resource's name, when it has one
+	Resource *string `json:"resource"`
+
+	// Sku The tier or server size it is priced at
+	Sku *string `json:"sku"`
+}
+
+// EstimateLineOutAction defines model for EstimateLineOut.Action.
+type EstimateLineOutAction string
+
+// EstimateOut An estimate at the catalogue's prices. Prices are a hypothesis during
+// the pilot, and usage that depends on traffic is listed in `metered`
+// rather than guessed.
+type EstimateOut struct {
+	// Change monthly minus current_monthly
+	Change   *string `json:"change"`
+	Currency string  `json:"currency"`
+
+	// CurrentMonthly Resizes and changesets: the same resources today
+	CurrentMonthly *string           `json:"current_monthly"`
+	Hypothesis     bool              `json:"hypothesis"`
+	Included       []string          `json:"included"`
+	Lines          []EstimateLineOut `json:"lines"`
+
+	// Metered Usage charged on top, which the monthly figure leaves out
+	Metered []MeteredChargeOut `json:"metered"`
+
+	// Monthly The monthly equivalent (730 hours) of what is proposed
+	Monthly string `json:"monthly"`
+
+	// Plan The plan the estimate counts allowances from, when known
+	Plan *string `json:"plan"`
+
+	// Warnings Limits of the plan the proposal goes beyond, and anything unpriced
+	Warnings []string `json:"warnings"`
+
+	// WhileStopped The part of monthly that goes on being charged while stopped
+	WhileStopped      string   `json:"while_stopped"`
+	WhileStoppedNotes []string `json:"while_stopped_notes"`
 }
 
 // Features defines model for Features.
@@ -3998,6 +4157,19 @@ type MeterUsageOut struct {
 	UnitPriceMinor string  `json:"unit_price_minor"`
 }
 
+// MeteredChargeOut defines model for MeteredChargeOut.
+type MeteredChargeOut struct {
+	// Description What is metered, from when, and at what price, in a sentence
+	Description string `json:"description"`
+	Key         string `json:"key"`
+	Label       string `json:"label"`
+	Per         int    `json:"per"`
+	Unit        string `json:"unit"`
+
+	// UnitPrice The price of `per` units
+	UnitPrice string `json:"unit_price"`
+}
+
 // MetricPointOut defines model for MetricPointOut.
 type MetricPointOut struct {
 	Ts    time.Time `json:"ts"`
@@ -4108,6 +4280,16 @@ type NotificationPreferences struct {
 
 	// UsageAlerts Email when an organization where you are an owner or admin passes a usage alert or reaches its spend limit
 	UsageAlerts bool `json:"usage_alerts"`
+}
+
+// ObjectStoragePrices defines model for ObjectStoragePrices.
+type ObjectStoragePrices struct {
+	Bands          []StorageBand `json:"bands"`
+	EgressGb       string        `json:"egress_gb"`
+	IngressGb      string        `json:"ingress_gb"`
+	MonthlyMinimum string        `json:"monthly_minimum"`
+	ReadsPer100k   string        `json:"reads_per_100k"`
+	WritesPer100k  string        `json:"writes_per_100k"`
 }
 
 // ObjectStorageSpec defines model for ObjectStorageSpec.
@@ -4307,10 +4489,18 @@ type PlanTemplateRequest struct {
 	Inputs *map[string]string `json:"inputs,omitempty"`
 }
 
+// PostgresPrices defines model for PostgresPrices.
+type PostgresPrices struct {
+	Tiers []DataTier `json:"tiers"`
+}
+
 // PostgresSpec defines model for PostgresSpec.
 type PostgresSpec struct {
 	Backups   *BackupSettings `json:"backups,omitempty"`
 	MemoryMib *int            `json:"memory_mib,omitempty"`
+
+	// Sku A tier id from GET /v1/catalog/prices, such as postgres-seed-v1. The tier sets memory_mib and storage_mib, so leave them out or give the tier's values. Without one, the sizes given are used as they are.
+	Sku *string `json:"sku,omitempty"`
 
 	// StorageMib Can grow but not shrink
 	StorageMib *int `json:"storage_mib,omitempty"`
@@ -4362,6 +4552,17 @@ type PreviewOut struct {
 
 // PreviewStatus defines model for PreviewStatus.
 type PreviewStatus string
+
+// PriceCatalogue defines model for PriceCatalogue.
+type PriceCatalogue struct {
+	Currency      string                 `json:"currency"`
+	HoursPerMonth int                    `json:"hours_per_month"`
+	Hypothesis    bool                   `json:"hypothesis"`
+	ObjectStorage ObjectStoragePrices    `json:"object_storage"`
+	Postgres      PostgresPrices         `json:"postgres"`
+	Redis         RedisPrices            `json:"redis"`
+	WhileStopped  map[string]StoppedRule `json:"while_stopped"`
+}
 
 // PrivacyOverrideIn A provider's own policy: a preset or custom YAML, and optionally its own enforcement.
 type PrivacyOverrideIn struct {
@@ -4628,6 +4829,11 @@ type RedisKeysOut struct {
 	Simulated  bool          `json:"simulated"`
 }
 
+// RedisPrices defines model for RedisPrices.
+type RedisPrices struct {
+	Tiers []DataTier `json:"tiers"`
+}
+
 // RedisSpec defines model for RedisSpec.
 type RedisSpec struct {
 	EvictionPolicy *RedisSpecEvictionPolicy `json:"eviction_policy,omitempty"`
@@ -4637,6 +4843,9 @@ type RedisSpec struct {
 
 	// Persistence Append-only file persistence
 	Persistence *bool `json:"persistence,omitempty"`
+
+	// Sku A tier id from GET /v1/catalog/prices, such as redis-seed-v1. The tier sets memory_mib, so leave it out or give the tier's values. Without one, the sizes given are used as they are.
+	Sku *string `json:"sku,omitempty"`
 
 	// TcpProxy Expose a public host and port that forwards TCP
 	TcpProxy *bool             `json:"tcp_proxy,omitempty"`
@@ -4648,6 +4857,23 @@ type RedisSpecEvictionPolicy string
 
 // RedisSpecVersion defines model for RedisSpec.Version.
 type RedisSpecVersion string
+
+// ReferenceTarget Something a variable can reference, with the names it offers; never values.
+type ReferenceTarget struct {
+	// Connected For a database, cache, bucket or queue: whether this service is connected to it. Referencing one it is not connected to connects it on save.
+	Connected *bool    `json:"connected,omitempty"`
+	Keys      []string `json:"keys"`
+	Kind      string   `json:"kind"`
+
+	// Name The service or resource name to write in ${{name.KEY}}
+	Name string `json:"name"`
+}
+
+// ReferenceTargetsOut defines model for ReferenceTargetsOut.
+type ReferenceTargetsOut struct {
+	Services []ReferenceTarget `json:"services"`
+	Shared   []string          `json:"shared"`
+}
 
 // ReferrerCount defines model for ReferrerCount.
 type ReferrerCount struct {
@@ -4692,6 +4918,18 @@ type RepoOut struct {
 	Private       bool    `json:"private"`
 }
 
+// ResizeEstimateIn defines model for ResizeEstimateIn.
+type ResizeEstimateIn struct {
+	ResourceId openapi_types.UUID `json:"resource_id"`
+
+	// Spec The proposed settings, laid over the current spec. Nested settings such as runtime are merged, and a new sku replaces the sizes the old one set.
+	Spec map[string]interface{} `json:"spec"`
+	Type ResizeEstimateInType   `json:"type"`
+}
+
+// ResizeEstimateInType defines model for ResizeEstimateIn.Type.
+type ResizeEstimateInType string
+
 // ResizeServerRequest defines model for ResizeServerRequest.
 type ResizeServerRequest struct {
 	// SizeId A size whose disk is at least as large
@@ -4703,6 +4941,29 @@ type ResizeVolumeRequest struct {
 	// SizeGb Larger than the current size; volumes only grow
 	SizeGb int `json:"size_gb"`
 }
+
+// ResourceEstimateIn defines model for ResourceEstimateIn.
+type ResourceEstimateIn struct {
+	// Kind The brief's resource kinds (section 25.2), plus Redis and queues.
+	Kind ResourceKind `json:"kind"`
+	Name *string      `json:"name,omitempty"`
+
+	// OrganizationId The same, when there is no project yet
+	OrganizationId *openapi_types.UUID `json:"organization_id,omitempty"`
+
+	// ProjectId Prices against the project's organization's plan and what it already uses
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// Spec The spec as it would be sent to create it
+	Spec *map[string]interface{} `json:"spec,omitempty"`
+	Type ResourceEstimateInType  `json:"type"`
+
+	// VolumeGb A volume created with it
+	VolumeGb *int `json:"volume_gb,omitempty"`
+}
+
+// ResourceEstimateInType defines model for ResourceEstimateIn.Type.
+type ResourceEstimateInType string
 
 // ResourceKind The brief's resource kinds (section 25.2), plus Redis and queues.
 type ResourceKind string
@@ -4726,7 +4987,10 @@ type ResourceOut struct {
 	NextRuns *[]time.Time `json:"next_runs"`
 	Observed *ObservedOut `json:"observed"`
 
-	// PrivateHostname <name>.<environment slug>.dekka.internal, reachable from the same environment
+	// PendingSettings Spec fields that are on but whose effect the engine has not reported, while no operation is in flight, such as tcp_proxy without a tcp_proxy endpoint. Sending the same spec again applies them again
+	PendingSettings *[]string `json:"pending_settings,omitempty"`
+
+	// PrivateHostname <slug>.internal.<region>.dekka.cloud, the name services in the same environment reach this resource by. The engine's reported internal hostname when it has one
 	PrivateHostname *string            `json:"private_hostname"`
 	ProjectId       openapi_types.UUID `json:"project_id"`
 
@@ -4772,6 +5036,12 @@ type RevealedEnvVar struct {
 
 // Role defines model for Role.
 type Role string
+
+// RollbackRequest defines model for RollbackRequest.
+type RollbackRequest struct {
+	// KeepCurrentVariables Run the earlier image with the service's variables as they are now, instead of the variables that deployment ran with
+	KeepCurrentVariables *bool `json:"keep_current_variables,omitempty"`
+}
 
 // RotateOut defines model for RotateOut.
 type RotateOut struct {
@@ -5170,6 +5440,20 @@ type StartCheckoutRequest struct {
 
 	// PlanId starter or growth
 	PlanId string `json:"plan_id"`
+}
+
+// StoppedRule defines model for StoppedRule.
+type StoppedRule struct {
+	Bills  bool   `json:"bills"`
+	Reason string `json:"reason"`
+}
+
+// StorageBand defines model for StorageBand.
+type StorageBand struct {
+	GbMonth string `json:"gb_month"`
+
+	// UpToGb The band's upper bound in GB, or null for the last band
+	UpToGb *int `json:"up_to_gb"`
 }
 
 // StreamOptions defines model for StreamOptions.
@@ -5672,6 +5956,9 @@ type StreamDeploymentLogsParams struct {
 	LastEventId *string `json:"last-event-id,omitempty"`
 }
 
+// RollbackDeploymentJSONBody defines parameters for RollbackDeployment.
+type RollbackDeploymentJSONBody = RollbackRequest
+
 // SubdomainAvailabilityParams defines parameters for SubdomainAvailability.
 type SubdomainAvailabilityParams struct {
 	// Subdomain The first part of an apps.dekka.cloud address
@@ -5686,6 +5973,11 @@ type ListEnvironmentChangesetsParams struct {
 
 // PlanTemplateJSONBody defines parameters for PlanTemplate.
 type PlanTemplateJSONBody = PlanTemplateRequest
+
+// EstimateJSONBody defines parameters for Estimate.
+type EstimateJSONBody struct {
+	union json.RawMessage
+}
 
 // GithubSetupCallbackParams defines parameters for GithubSetupCallback.
 type GithubSetupCallbackParams struct {
@@ -5906,6 +6198,9 @@ type TranslateComposeJSONRequestBody = ComposeIn
 // LeaveAMessageJSONRequestBody defines body for LeaveAMessage for application/json ContentType.
 type LeaveAMessageJSONRequestBody = ContactIn
 
+// RollbackDeploymentJSONRequestBody defines body for RollbackDeployment for application/json ContentType.
+type RollbackDeploymentJSONRequestBody = RollbackDeploymentJSONBody
+
 // SimulateGithubPullRequestJSONRequestBody defines body for SimulateGithubPullRequest for application/json ContentType.
 type SimulateGithubPullRequestJSONRequestBody = SimulatePullRequestRequest
 
@@ -5938,6 +6233,9 @@ type PutSharedVariablesJSONRequestBody = PutSharedVariablesRequest
 
 // PutRawSharedVariablesJSONRequestBody defines body for PutRawSharedVariables for application/json ContentType.
 type PutRawSharedVariablesJSONRequestBody = PutRawEnvRequest
+
+// EstimateJSONRequestBody defines body for Estimate for application/json ContentType.
+type EstimateJSONRequestBody EstimateJSONBody
 
 // UpdateInferenceEndpointJSONRequestBody defines body for UpdateInferenceEndpoint for application/json ContentType.
 type UpdateInferenceEndpointJSONRequestBody = InferenceEndpointPatch
@@ -7097,6 +7395,143 @@ func (t *RecordAnalyticsEventJSONBody_Props_AdditionalProperties) UnmarshalJSON(
 	return err
 }
 
+// AsResourceEstimateIn returns the union data inside the EstimateJSONBody as a ResourceEstimateIn
+func (t EstimateJSONBody) AsResourceEstimateIn() (ResourceEstimateIn, error) {
+	var body ResourceEstimateIn
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromResourceEstimateIn overwrites any union data inside the EstimateJSONBody as the provided ResourceEstimateIn
+func (t *EstimateJSONBody) FromResourceEstimateIn(v ResourceEstimateIn) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"resource"}`))
+	t.union = b
+	return err
+}
+
+// MergeResourceEstimateIn performs a merge with any union data inside the EstimateJSONBody, using the provided ResourceEstimateIn
+func (t *EstimateJSONBody) MergeResourceEstimateIn(v ResourceEstimateIn) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"resource"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsResizeEstimateIn returns the union data inside the EstimateJSONBody as a ResizeEstimateIn
+func (t EstimateJSONBody) AsResizeEstimateIn() (ResizeEstimateIn, error) {
+	var body ResizeEstimateIn
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromResizeEstimateIn overwrites any union data inside the EstimateJSONBody as the provided ResizeEstimateIn
+func (t *EstimateJSONBody) FromResizeEstimateIn(v ResizeEstimateIn) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"resize"}`))
+	t.union = b
+	return err
+}
+
+// MergeResizeEstimateIn performs a merge with any union data inside the EstimateJSONBody, using the provided ResizeEstimateIn
+func (t *EstimateJSONBody) MergeResizeEstimateIn(v ResizeEstimateIn) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"resize"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsChangesetEstimateIn returns the union data inside the EstimateJSONBody as a ChangesetEstimateIn
+func (t EstimateJSONBody) AsChangesetEstimateIn() (ChangesetEstimateIn, error) {
+	var body ChangesetEstimateIn
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromChangesetEstimateIn overwrites any union data inside the EstimateJSONBody as the provided ChangesetEstimateIn
+func (t *EstimateJSONBody) FromChangesetEstimateIn(v ChangesetEstimateIn) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"changeset"}`))
+	t.union = b
+	return err
+}
+
+// MergeChangesetEstimateIn performs a merge with any union data inside the EstimateJSONBody, using the provided ChangesetEstimateIn
+func (t *EstimateJSONBody) MergeChangesetEstimateIn(v ChangesetEstimateIn) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"changeset"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t EstimateJSONBody) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t EstimateJSONBody) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "changeset":
+		return t.AsChangesetEstimateIn()
+	case "resize":
+		return t.AsResizeEstimateIn()
+	case "resource":
+		return t.AsResourceEstimateIn()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t EstimateJSONBody) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *EstimateJSONBody) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // RequestEditorFn is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
 
@@ -7557,6 +7992,18 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/catalog/plans (the `ListPlans` operationId).
 	ListPlans(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListPrices List Prices
+	//
+	// PostgreSQL and Redis tiers, object storage rates, and what goes on
+	// being charged while a resource is stopped, from app/catalog/prices.yaml.
+	// The prices are a hypothesis in GHS, before tax. A tier id is a SKU that
+	// POST /v1/resources accepts as `spec.sku`, and POST /v1/estimates prices
+	// with these. Billing moves to them once the migration in
+	// docs/billing-catalogue-migration.md is approved.
+	//
+	// Corresponds with GET /v1/catalog/prices (the `ListPrices` operationId).
+	ListPrices(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ServerCatalog Server Catalog
 	//
 	// Runtime profiles, sizes and images for virtual servers. Prices are a
@@ -7719,15 +8166,37 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/deployments/{deployment_id}/remove (the `RemoveDeployment` operationId).
 	RemoveDeployment(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RollbackDeploymentWithBody Rollback Deployment
+	//
+	// Deploys an earlier healthy deployment's image again, with the settings
+	// and the variables it ran with, or with the service's current variables
+	// when `keep_current_variables` is true. Databases, volumes and buckets are
+	// not changed, so their data and any migrations stay as they are. Returns
+	// the new deployment, whose trigger is `rollback`. A deployment without a
+	// recorded image answers 409 no_image, the one serving now 409
+	// already_active, and one from before variables were recorded 409
+	// variables_not_recorded unless the current variables are kept.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/deployments/{deployment_id}/rollback (the `RollbackDeployment` operationId).
+	RollbackDeploymentWithBody(ctx context.Context, deploymentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RollbackDeployment Rollback Deployment
 	//
 	// Deploys an earlier healthy deployment's image again, with the settings
-	// it ran with and the service's current variables. Returns the new
-	// deployment, whose trigger is `rollback`. A deployment without a recorded
-	// image answers 409 no_image, and the one serving now 409 already_active.
+	// and the variables it ran with, or with the service's current variables
+	// when `keep_current_variables` is true. Databases, volumes and buckets are
+	// not changed, so their data and any migrations stay as they are. Returns
+	// the new deployment, whose trigger is `rollback`. A deployment without a
+	// recorded image answers 409 no_image, the one serving now 409
+	// already_active, and one from before variables were recorded 409
+	// variables_not_recorded unless the current variables are kept.
+	//
+	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /v1/deployments/{deployment_id}/rollback (the `RollbackDeployment` operationId).
-	RollbackDeployment(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RollbackDeployment(ctx context.Context, deploymentId openapi_types.UUID, body RollbackDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SimulateGithubPullRequestWithBody Simulate Github Pull Request
 	//
@@ -7824,9 +8293,9 @@ type ClientInterface interface {
 
 	// UpdateEnvironmentWithBody Update Environment
 	//
-	// Renames the environment and its slug. Private hostnames
-	// (`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow
-	// the new name from each service's next deploy.
+	// Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new
+	// name from each service's next deploy. Private hostnames
+	// (`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -7835,9 +8304,9 @@ type ClientInterface interface {
 
 	// UpdateEnvironment Update Environment
 	//
-	// Renames the environment and its slug. Private hostnames
-	// (`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow
-	// the new name from each service's next deploy.
+	// Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new
+	// name from each service's next deploy. Private hostnames
+	// (`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -8051,6 +8520,15 @@ type ClientInterface interface {
 	// Corresponds with PUT /v1/environments/{environment_id}/variables/raw (the `PutRawSharedVariables` operationId).
 	PutRawSharedVariables(ctx context.Context, environmentId openapi_types.UUID, body PutRawSharedVariablesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// EnvironmentReferenceTargets Environment Reference Targets
+	//
+	// What shared variables can reference, for autocomplete. A database's
+	// connection variables are left out, since they belong to the service that
+	// connects. Names only; values are never returned.
+	//
+	// Corresponds with GET /v1/environments/{environment_id}/variables/references (the `EnvironmentReferenceTargets` operationId).
+	EnvironmentReferenceTargets(ctx context.Context, environmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteSharedVariable Delete Shared Variable
 	//
 	// Corresponds with DELETE /v1/environments/{environment_id}/variables/{key} (the `DeleteSharedVariable` operationId).
@@ -8060,6 +8538,32 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/environments/{environment_id}/variables/{key}/reveal (the `RevealSharedVariable` operationId).
 	RevealSharedVariable(ctx context.Context, environmentId openapi_types.UUID, key string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EstimateWithBody Estimate
+	//
+	// What a proposed resource, a resize or a changeset costs, as a monthly
+	// equivalent in the catalogue's currency with a line for each part, what
+	// goes on being charged while stopped, and the usage metered on top. It
+	// reads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the
+	// organization's plan allowances when it is known. It changes nothing.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/estimates (the `Estimate` operationId).
+	EstimateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Estimate Estimate
+	//
+	// What a proposed resource, a resize or a changeset costs, as a monthly
+	// equivalent in the catalogue's currency with a line for each part, what
+	// goes on being charged while stopped, and the usage metered on top. It
+	// reads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the
+	// organization's plan allowances when it is known. It changes nothing.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/estimates (the `Estimate` operationId).
+	Estimate(ctx context.Context, body EstimateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGithubRepos List Github Repos
 	//
@@ -8081,7 +8585,7 @@ type ClientInterface interface {
 	// GithubSetupAuthorized Github Setup Authorized
 	//
 	// Second half of the installation callback: GitHub has authorised the user, so
-	// link the installation only if that user can access it.
+	// link the installation only if that user administers it.
 	//
 	// Corresponds with GET /v1/github/setup/authorized (the `GithubSetupAuthorized` operationId).
 	GithubSetupAuthorized(ctx context.Context, params *GithubSetupAuthorizedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9278,8 +9782,10 @@ type ClientInterface interface {
 	//
 	// Creates or updates the given variables. Others are left alone, and
 	// connection-managed keys are read-only. References are checked and refused
-	// with 422 unknown_reference when they do not resolve. Changes apply on the
-	// next restart or deploy.
+	// with 422 unknown_reference when they do not resolve. A reference to a
+	// database, cache, bucket or queue the service is not connected to connects
+	// it, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes
+	// apply on the next restart or deploy.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -9290,8 +9796,10 @@ type ClientInterface interface {
 	//
 	// Creates or updates the given variables. Others are left alone, and
 	// connection-managed keys are read-only. References are checked and refused
-	// with 422 unknown_reference when they do not resolve. Changes apply on the
-	// next restart or deploy.
+	// with 422 unknown_reference when they do not resolve. A reference to a
+	// database, cache, bucket or queue the service is not connected to connects
+	// it, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes
+	// apply on the next restart or deploy.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -9327,6 +9835,15 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /v1/resources/{resource_id}/env/raw (the `PutRawEnv` operationId).
 	PutRawEnv(ctx context.Context, resourceId openapi_types.UUID, body PutRawEnvJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResourceReferenceTargets Resource Reference Targets
+	//
+	// The services, databases and shared variables this service's variables can
+	// reference as ${{name.KEY}}, with the keys each offers, for autocomplete.
+	// Names only; values are never returned.
+	//
+	// Corresponds with GET /v1/resources/{resource_id}/env/references (the `ResourceReferenceTargets` operationId).
+	ResourceReferenceTargets(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteEnvVar Delete Env Var
 	//
@@ -10437,6 +10954,28 @@ func (c *Client) ListPlans(ctx context.Context, reqEditors ...RequestEditorFn) (
 	return c.Client.Do(req)
 }
 
+// ListPrices List Prices
+//
+// PostgreSQL and Redis tiers, object storage rates, and what goes on
+// being charged while a resource is stopped, from app/catalog/prices.yaml.
+// The prices are a hypothesis in GHS, before tax. A tier id is a SKU that
+// POST /v1/resources accepts as `spec.sku`, and POST /v1/estimates prices
+// with these. Billing moves to them once the migration in
+// docs/billing-catalogue-migration.md is approved.
+//
+// Corresponds with GET /v1/catalog/prices (the `ListPrices` operationId).
+func (c *Client) ListPrices(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPricesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ServerCatalog Server Catalog
 //
 // Runtime profiles, sizes and images for virtual servers. Prices are a
@@ -10789,16 +11328,48 @@ func (c *Client) RemoveDeployment(ctx context.Context, deploymentId openapi_type
 	return c.Client.Do(req)
 }
 
+// RollbackDeploymentWithBody Rollback Deployment
+//
+// Deploys an earlier healthy deployment's image again, with the settings
+// and the variables it ran with, or with the service's current variables
+// when `keep_current_variables` is true. Databases, volumes and buckets are
+// not changed, so their data and any migrations stay as they are. Returns
+// the new deployment, whose trigger is `rollback`. A deployment without a
+// recorded image answers 409 no_image, the one serving now 409
+// already_active, and one from before variables were recorded 409
+// variables_not_recorded unless the current variables are kept.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/deployments/{deployment_id}/rollback (the `RollbackDeployment` operationId).
+func (c *Client) RollbackDeploymentWithBody(ctx context.Context, deploymentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackDeploymentRequestWithBody(c.Server, deploymentId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // RollbackDeployment Rollback Deployment
 //
 // Deploys an earlier healthy deployment's image again, with the settings
-// it ran with and the service's current variables. Returns the new
-// deployment, whose trigger is `rollback`. A deployment without a recorded
-// image answers 409 no_image, and the one serving now 409 already_active.
+// and the variables it ran with, or with the service's current variables
+// when `keep_current_variables` is true. Databases, volumes and buckets are
+// not changed, so their data and any migrations stay as they are. Returns
+// the new deployment, whose trigger is `rollback`. A deployment without a
+// recorded image answers 409 no_image, the one serving now 409
+// already_active, and one from before variables were recorded 409
+// variables_not_recorded unless the current variables are kept.
+//
+// Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /v1/deployments/{deployment_id}/rollback (the `RollbackDeployment` operationId).
-func (c *Client) RollbackDeployment(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRollbackDeploymentRequest(c.Server, deploymentId)
+func (c *Client) RollbackDeployment(ctx context.Context, deploymentId openapi_types.UUID, body RollbackDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackDeploymentRequest(c.Server, deploymentId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11014,9 +11585,9 @@ func (c *Client) GetEnvironment(ctx context.Context, environmentId openapi_types
 
 // UpdateEnvironmentWithBody Update Environment
 //
-// Renames the environment and its slug. Private hostnames
-// (`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow
-// the new name from each service's next deploy.
+// Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new
+// name from each service's next deploy. Private hostnames
+// (`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.
 //
 // Takes any type of body and a specified content type.
 //
@@ -11035,9 +11606,9 @@ func (c *Client) UpdateEnvironmentWithBody(ctx context.Context, environmentId op
 
 // UpdateEnvironment Update Environment
 //
-// Renames the environment and its slug. Private hostnames
-// (`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow
-// the new name from each service's next deploy.
+// Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new
+// name from each service's next deploy. Private hostnames
+// (`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -11441,6 +12012,25 @@ func (c *Client) PutRawSharedVariables(ctx context.Context, environmentId openap
 	return c.Client.Do(req)
 }
 
+// EnvironmentReferenceTargets Environment Reference Targets
+//
+// What shared variables can reference, for autocomplete. A database's
+// connection variables are left out, since they belong to the service that
+// connects. Names only; values are never returned.
+//
+// Corresponds with GET /v1/environments/{environment_id}/variables/references (the `EnvironmentReferenceTargets` operationId).
+func (c *Client) EnvironmentReferenceTargets(ctx context.Context, environmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvironmentReferenceTargetsRequest(c.Server, environmentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // DeleteSharedVariable Delete Shared Variable
 //
 // Corresponds with DELETE /v1/environments/{environment_id}/variables/{key} (the `DeleteSharedVariable` operationId).
@@ -11461,6 +12051,52 @@ func (c *Client) DeleteSharedVariable(ctx context.Context, environmentId openapi
 // Corresponds with POST /v1/environments/{environment_id}/variables/{key}/reveal (the `RevealSharedVariable` operationId).
 func (c *Client) RevealSharedVariable(ctx context.Context, environmentId openapi_types.UUID, key string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRevealSharedVariableRequest(c.Server, environmentId, key)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EstimateWithBody Estimate
+//
+// What a proposed resource, a resize or a changeset costs, as a monthly
+// equivalent in the catalogue's currency with a line for each part, what
+// goes on being charged while stopped, and the usage metered on top. It
+// reads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the
+// organization's plan allowances when it is known. It changes nothing.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/estimates (the `Estimate` operationId).
+func (c *Client) EstimateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEstimateRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Estimate Estimate
+//
+// What a proposed resource, a resize or a changeset costs, as a monthly
+// equivalent in the catalogue's currency with a line for each part, what
+// goes on being charged while stopped, and the usage metered on top. It
+// reads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the
+// organization's plan allowances when it is known. It changes nothing.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/estimates (the `Estimate` operationId).
+func (c *Client) Estimate(ctx context.Context, body EstimateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEstimateRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11521,7 +12157,7 @@ func (c *Client) GithubSetupCallback(ctx context.Context, params *GithubSetupCal
 // GithubSetupAuthorized Github Setup Authorized
 //
 // Second half of the installation callback: GitHub has authorised the user, so
-// link the installation only if that user can access it.
+// link the installation only if that user administers it.
 //
 // Corresponds with GET /v1/github/setup/authorized (the `GithubSetupAuthorized` operationId).
 func (c *Client) GithubSetupAuthorized(ctx context.Context, params *GithubSetupAuthorizedParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -14238,8 +14874,10 @@ func (c *Client) ListEnv(ctx context.Context, resourceId openapi_types.UUID, req
 //
 // Creates or updates the given variables. Others are left alone, and
 // connection-managed keys are read-only. References are checked and refused
-// with 422 unknown_reference when they do not resolve. Changes apply on the
-// next restart or deploy.
+// with 422 unknown_reference when they do not resolve. A reference to a
+// database, cache, bucket or queue the service is not connected to connects
+// it, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes
+// apply on the next restart or deploy.
 //
 // Takes any type of body and a specified content type.
 //
@@ -14260,8 +14898,10 @@ func (c *Client) PutEnvWithBody(ctx context.Context, resourceId openapi_types.UU
 //
 // Creates or updates the given variables. Others are left alone, and
 // connection-managed keys are read-only. References are checked and refused
-// with 422 unknown_reference when they do not resolve. Changes apply on the
-// next restart or deploy.
+// with 422 unknown_reference when they do not resolve. A reference to a
+// database, cache, bucket or queue the service is not connected to connects
+// it, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes
+// apply on the next restart or deploy.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -14328,6 +14968,25 @@ func (c *Client) PutRawEnvWithBody(ctx context.Context, resourceId openapi_types
 // Corresponds with PUT /v1/resources/{resource_id}/env/raw (the `PutRawEnv` operationId).
 func (c *Client) PutRawEnv(ctx context.Context, resourceId openapi_types.UUID, body PutRawEnvJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutRawEnvRequest(c.Server, resourceId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ResourceReferenceTargets Resource Reference Targets
+//
+// The services, databases and shared variables this service's variables can
+// reference as ${{name.KEY}}, with the keys each offers, for autocomplete.
+// Names only; values are never returned.
+//
+// Corresponds with GET /v1/resources/{resource_id}/env/references (the `ResourceReferenceTargets` operationId).
+func (c *Client) ResourceReferenceTargets(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResourceReferenceTargetsRequest(c.Server, resourceId)
 	if err != nil {
 		return nil, err
 	}
@@ -16262,6 +16921,33 @@ func NewListPlansRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListPricesRequest constructs an http.Request for the ListPrices method
+func NewListPricesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/catalog/prices")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewServerCatalogRequest constructs an http.Request for the ServerCatalog method
 func NewServerCatalogRequest(server string) (*http.Request, error) {
 	var err error
@@ -16925,8 +17611,19 @@ func NewRemoveDeploymentRequest(server string, deploymentId openapi_types.UUID) 
 	return req, nil
 }
 
-// NewRollbackDeploymentRequest constructs an http.Request for the RollbackDeployment method
-func NewRollbackDeploymentRequest(server string, deploymentId openapi_types.UUID) (*http.Request, error) {
+// NewRollbackDeploymentRequest calls the generic RollbackDeployment builder with application/json body
+func NewRollbackDeploymentRequest(server string, deploymentId openapi_types.UUID, body RollbackDeploymentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRollbackDeploymentRequestWithBody(server, deploymentId, "application/json", bodyReader)
+}
+
+// NewRollbackDeploymentRequestWithBody constructs an http.Request for the RollbackDeployment method, with any body, and a specified content type
+func NewRollbackDeploymentRequestWithBody(server string, deploymentId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -16951,10 +17648,12 @@ func NewRollbackDeploymentRequest(server string, deploymentId openapi_types.UUID
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -17823,6 +18522,40 @@ func NewPutRawSharedVariablesRequestWithBody(server string, environmentId openap
 	return req, nil
 }
 
+// NewEnvironmentReferenceTargetsRequest constructs an http.Request for the EnvironmentReferenceTargets method
+func NewEnvironmentReferenceTargetsRequest(server string, environmentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "environment_id", environmentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/environments/%s/variables/references", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteSharedVariableRequest constructs an http.Request for the DeleteSharedVariable method
 func NewDeleteSharedVariableRequest(server string, environmentId openapi_types.UUID, key string) (*http.Request, error) {
 	var err error
@@ -17901,6 +18634,46 @@ func NewRevealSharedVariableRequest(server string, environmentId openapi_types.U
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewEstimateRequest calls the generic Estimate builder with application/json body
+func NewEstimateRequest(server string, body EstimateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEstimateRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEstimateRequestWithBody constructs an http.Request for the Estimate method, with any body, and a specified content type
+func NewEstimateRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/estimates")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -23283,6 +24056,40 @@ func NewPutRawEnvRequestWithBody(server string, resourceId openapi_types.UUID, c
 	return req, nil
 }
 
+// NewResourceReferenceTargetsRequest constructs an http.Request for the ResourceReferenceTargets method
+func NewResourceReferenceTargetsRequest(server string, resourceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "resource_id", resourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/resources/%s/env/references", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteEnvVarRequest constructs an http.Request for the DeleteEnvVar method
 func NewDeleteEnvVarRequest(server string, resourceId openapi_types.UUID, key string) (*http.Request, error) {
 	var err error
@@ -25268,6 +26075,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/catalog/plans (the `ListPlans` operationId).
 	ListPlansWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPlansResponse, error)
 
+	// ListPricesWithResponse List Prices
+	//
+	// PostgreSQL and Redis tiers, object storage rates, and what goes on
+	// being charged while a resource is stopped, from app/catalog/prices.yaml.
+	// The prices are a hypothesis in GHS, before tax. A tier id is a SKU that
+	// POST /v1/resources accepts as `spec.sku`, and POST /v1/estimates prices
+	// with these. Billing moves to them once the migration in
+	// docs/billing-catalogue-migration.md is approved.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/catalog/prices (the `ListPrices` operationId).
+	ListPricesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPricesResponse, error)
+
 	// ServerCatalogWithResponse Server Catalog
 	//
 	// Runtime profiles, sizes and images for virtual servers. Prices are a
@@ -25456,17 +26277,37 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/deployments/{deployment_id}/remove (the `RemoveDeployment` operationId).
 	RemoveDeploymentWithResponse(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveDeploymentResponse, error)
 
+	// RollbackDeploymentWithBodyWithResponse Rollback Deployment
+	//
+	// Deploys an earlier healthy deployment's image again, with the settings
+	// and the variables it ran with, or with the service's current variables
+	// when `keep_current_variables` is true. Databases, volumes and buckets are
+	// not changed, so their data and any migrations stay as they are. Returns
+	// the new deployment, whose trigger is `rollback`. A deployment without a
+	// recorded image answers 409 no_image, the one serving now 409
+	// already_active, and one from before variables were recorded 409
+	// variables_not_recorded unless the current variables are kept.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/deployments/{deployment_id}/rollback (the `RollbackDeployment` operationId).
+	RollbackDeploymentWithBodyWithResponse(ctx context.Context, deploymentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RollbackDeploymentResponse, error)
+
 	// RollbackDeploymentWithResponse Rollback Deployment
 	//
 	// Deploys an earlier healthy deployment's image again, with the settings
-	// it ran with and the service's current variables. Returns the new
-	// deployment, whose trigger is `rollback`. A deployment without a recorded
-	// image answers 409 no_image, and the one serving now 409 already_active.
+	// and the variables it ran with, or with the service's current variables
+	// when `keep_current_variables` is true. Databases, volumes and buckets are
+	// not changed, so their data and any migrations stay as they are. Returns
+	// the new deployment, whose trigger is `rollback`. A deployment without a
+	// recorded image answers 409 no_image, the one serving now 409
+	// already_active, and one from before variables were recorded 409
+	// variables_not_recorded unless the current variables are kept.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/deployments/{deployment_id}/rollback (the `RollbackDeployment` operationId).
-	RollbackDeploymentWithResponse(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RollbackDeploymentResponse, error)
+	RollbackDeploymentWithResponse(ctx context.Context, deploymentId openapi_types.UUID, body RollbackDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackDeploymentResponse, error)
 
 	// SimulateGithubPullRequestWithBodyWithResponse Simulate Github Pull Request
 	//
@@ -25573,9 +26414,9 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateEnvironmentWithBodyWithResponse Update Environment
 	//
-	// Renames the environment and its slug. Private hostnames
-	// (`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow
-	// the new name from each service's next deploy.
+	// Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new
+	// name from each service's next deploy. Private hostnames
+	// (`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -25584,9 +26425,9 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateEnvironmentWithResponse Update Environment
 	//
-	// Renames the environment and its slug. Private hostnames
-	// (`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow
-	// the new name from each service's next deploy.
+	// Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new
+	// name from each service's next deploy. Private hostnames
+	// (`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -25808,6 +26649,17 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /v1/environments/{environment_id}/variables/raw (the `PutRawSharedVariables` operationId).
 	PutRawSharedVariablesWithResponse(ctx context.Context, environmentId openapi_types.UUID, body PutRawSharedVariablesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRawSharedVariablesResponse, error)
 
+	// EnvironmentReferenceTargetsWithResponse Environment Reference Targets
+	//
+	// What shared variables can reference, for autocomplete. A database's
+	// connection variables are left out, since they belong to the service that
+	// connects. Names only; values are never returned.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/environments/{environment_id}/variables/references (the `EnvironmentReferenceTargets` operationId).
+	EnvironmentReferenceTargetsWithResponse(ctx context.Context, environmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*EnvironmentReferenceTargetsResponse, error)
+
 	// DeleteSharedVariableWithResponse Delete Shared Variable
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -25821,6 +26673,32 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/environments/{environment_id}/variables/{key}/reveal (the `RevealSharedVariable` operationId).
 	RevealSharedVariableWithResponse(ctx context.Context, environmentId openapi_types.UUID, key string, reqEditors ...RequestEditorFn) (*RevealSharedVariableResponse, error)
+
+	// EstimateWithBodyWithResponse Estimate
+	//
+	// What a proposed resource, a resize or a changeset costs, as a monthly
+	// equivalent in the catalogue's currency with a line for each part, what
+	// goes on being charged while stopped, and the usage metered on top. It
+	// reads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the
+	// organization's plan allowances when it is known. It changes nothing.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/estimates (the `Estimate` operationId).
+	EstimateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EstimateResponse, error)
+
+	// EstimateWithResponse Estimate
+	//
+	// What a proposed resource, a resize or a changeset costs, as a monthly
+	// equivalent in the catalogue's currency with a line for each part, what
+	// goes on being charged while stopped, and the usage metered on top. It
+	// reads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the
+	// organization's plan allowances when it is known. It changes nothing.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/estimates (the `Estimate` operationId).
+	EstimateWithResponse(ctx context.Context, body EstimateJSONRequestBody, reqEditors ...RequestEditorFn) (*EstimateResponse, error)
 
 	// ListGithubReposWithResponse List Github Repos
 	//
@@ -25848,7 +26726,7 @@ type ClientWithResponsesInterface interface {
 	// GithubSetupAuthorizedWithResponse Github Setup Authorized
 	//
 	// Second half of the installation callback: GitHub has authorised the user, so
-	// link the installation only if that user can access it.
+	// link the installation only if that user administers it.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -27213,8 +28091,10 @@ type ClientWithResponsesInterface interface {
 	//
 	// Creates or updates the given variables. Others are left alone, and
 	// connection-managed keys are read-only. References are checked and refused
-	// with 422 unknown_reference when they do not resolve. Changes apply on the
-	// next restart or deploy.
+	// with 422 unknown_reference when they do not resolve. A reference to a
+	// database, cache, bucket or queue the service is not connected to connects
+	// it, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes
+	// apply on the next restart or deploy.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -27225,8 +28105,10 @@ type ClientWithResponsesInterface interface {
 	//
 	// Creates or updates the given variables. Others are left alone, and
 	// connection-managed keys are read-only. References are checked and refused
-	// with 422 unknown_reference when they do not resolve. Changes apply on the
-	// next restart or deploy.
+	// with 422 unknown_reference when they do not resolve. A reference to a
+	// database, cache, bucket or queue the service is not connected to connects
+	// it, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes
+	// apply on the next restart or deploy.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -27264,6 +28146,17 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /v1/resources/{resource_id}/env/raw (the `PutRawEnv` operationId).
 	PutRawEnvWithResponse(ctx context.Context, resourceId openapi_types.UUID, body PutRawEnvJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRawEnvResponse, error)
+
+	// ResourceReferenceTargetsWithResponse Resource Reference Targets
+	//
+	// The services, databases and shared variables this service's variables can
+	// reference as ${{name.KEY}}, with the keys each offers, for autocomplete.
+	// Names only; values are never returned.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/resources/{resource_id}/env/references (the `ResourceReferenceTargets` operationId).
+	ResourceReferenceTargetsWithResponse(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ResourceReferenceTargetsResponse, error)
 
 	// DeleteEnvVarWithResponse Delete Env Var
 	//
@@ -29173,6 +30066,61 @@ func (r ListPlansResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListPlansResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPricesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PriceCatalogue
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPricesResponse) GetJSON200() *PriceCatalogue {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r ListPricesResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r ListPricesResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPricesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPricesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPricesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPricesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -31193,6 +32141,61 @@ func (r PutRawSharedVariablesResponse) ContentType() string {
 	return ""
 }
 
+type EnvironmentReferenceTargetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReferenceTargetsOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnvironmentReferenceTargetsResponse) GetJSON200() *ReferenceTargetsOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r EnvironmentReferenceTargetsResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r EnvironmentReferenceTargetsResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvironmentReferenceTargetsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvironmentReferenceTargetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvironmentReferenceTargetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvironmentReferenceTargetsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteSharedVariableResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -31290,6 +32293,61 @@ func (r RevealSharedVariableResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RevealSharedVariableResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EstimateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *EstimateOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EstimateResponse) GetJSON200() *EstimateOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r EstimateResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r EstimateResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r EstimateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EstimateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EstimateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EstimateResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -38011,6 +39069,61 @@ func (r PutRawEnvResponse) ContentType() string {
 	return ""
 }
 
+type ResourceReferenceTargetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ReferenceTargetsOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ResourceReferenceTargetsResponse) GetJSON200() *ReferenceTargetsOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r ResourceReferenceTargetsResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r ResourceReferenceTargetsResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r ResourceReferenceTargetsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ResourceReferenceTargetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResourceReferenceTargetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ResourceReferenceTargetsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteEnvVarResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -40464,6 +41577,26 @@ func (c *ClientWithResponses) ListPlansWithResponse(ctx context.Context, reqEdit
 	return ParseListPlansResponse(rsp)
 }
 
+// ListPricesWithResponse List Prices
+//
+// PostgreSQL and Redis tiers, object storage rates, and what goes on
+// being charged while a resource is stopped, from app/catalog/prices.yaml.
+// The prices are a hypothesis in GHS, before tax. A tier id is a SKU that
+// POST /v1/resources accepts as `spec.sku`, and POST /v1/estimates prices
+// with these. Billing moves to them once the migration in
+// docs/billing-catalogue-migration.md is approved.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/catalog/prices (the `ListPrices` operationId).
+func (c *ClientWithResponses) ListPricesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPricesResponse, error) {
+	rsp, err := c.ListPrices(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPricesResponse(rsp)
+}
+
 // ServerCatalogWithResponse Server Catalog
 //
 // Runtime profiles, sizes and images for virtual servers. Prices are a
@@ -40766,18 +41899,44 @@ func (c *ClientWithResponses) RemoveDeploymentWithResponse(ctx context.Context, 
 	return ParseRemoveDeploymentResponse(rsp)
 }
 
+// RollbackDeploymentWithBodyWithResponse Rollback Deployment
+//
+// Deploys an earlier healthy deployment's image again, with the settings
+// and the variables it ran with, or with the service's current variables
+// when `keep_current_variables` is true. Databases, volumes and buckets are
+// not changed, so their data and any migrations stay as they are. Returns
+// the new deployment, whose trigger is `rollback`. A deployment without a
+// recorded image answers 409 no_image, the one serving now 409
+// already_active, and one from before variables were recorded 409
+// variables_not_recorded unless the current variables are kept.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/deployments/{deployment_id}/rollback (the `RollbackDeployment` operationId).
+func (c *ClientWithResponses) RollbackDeploymentWithBodyWithResponse(ctx context.Context, deploymentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RollbackDeploymentResponse, error) {
+	rsp, err := c.RollbackDeploymentWithBody(ctx, deploymentId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRollbackDeploymentResponse(rsp)
+}
+
 // RollbackDeploymentWithResponse Rollback Deployment
 //
 // Deploys an earlier healthy deployment's image again, with the settings
-// it ran with and the service's current variables. Returns the new
-// deployment, whose trigger is `rollback`. A deployment without a recorded
-// image answers 409 no_image, and the one serving now 409 already_active.
+// and the variables it ran with, or with the service's current variables
+// when `keep_current_variables` is true. Databases, volumes and buckets are
+// not changed, so their data and any migrations stay as they are. Returns
+// the new deployment, whose trigger is `rollback`. A deployment without a
+// recorded image answers 409 no_image, the one serving now 409
+// already_active, and one from before variables were recorded 409
+// variables_not_recorded unless the current variables are kept.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/deployments/{deployment_id}/rollback (the `RollbackDeployment` operationId).
-func (c *ClientWithResponses) RollbackDeploymentWithResponse(ctx context.Context, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RollbackDeploymentResponse, error) {
-	rsp, err := c.RollbackDeployment(ctx, deploymentId, reqEditors...)
+func (c *ClientWithResponses) RollbackDeploymentWithResponse(ctx context.Context, deploymentId openapi_types.UUID, body RollbackDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackDeploymentResponse, error) {
+	rsp, err := c.RollbackDeployment(ctx, deploymentId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -40955,9 +42114,9 @@ func (c *ClientWithResponses) GetEnvironmentWithResponse(ctx context.Context, en
 
 // UpdateEnvironmentWithBodyWithResponse Update Environment
 //
-// Renames the environment and its slug. Private hostnames
-// (`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow
-// the new name from each service's next deploy.
+// Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new
+// name from each service's next deploy. Private hostnames
+// (`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -40972,9 +42131,9 @@ func (c *ClientWithResponses) UpdateEnvironmentWithBodyWithResponse(ctx context.
 
 // UpdateEnvironmentWithResponse Update Environment
 //
-// Renames the environment and its slug. Private hostnames
-// (`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow
-// the new name from each service's next deploy.
+// Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new
+// name from each service's next deploy. Private hostnames
+// (`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -41310,6 +42469,23 @@ func (c *ClientWithResponses) PutRawSharedVariablesWithResponse(ctx context.Cont
 	return ParsePutRawSharedVariablesResponse(rsp)
 }
 
+// EnvironmentReferenceTargetsWithResponse Environment Reference Targets
+//
+// What shared variables can reference, for autocomplete. A database's
+// connection variables are left out, since they belong to the service that
+// connects. Names only; values are never returned.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/environments/{environment_id}/variables/references (the `EnvironmentReferenceTargets` operationId).
+func (c *ClientWithResponses) EnvironmentReferenceTargetsWithResponse(ctx context.Context, environmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*EnvironmentReferenceTargetsResponse, error) {
+	rsp, err := c.EnvironmentReferenceTargets(ctx, environmentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvironmentReferenceTargetsResponse(rsp)
+}
+
 // DeleteSharedVariableWithResponse Delete Shared Variable
 //
 // Returns a wrapper object for the known response body format(s).
@@ -41334,6 +42510,44 @@ func (c *ClientWithResponses) RevealSharedVariableWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseRevealSharedVariableResponse(rsp)
+}
+
+// EstimateWithBodyWithResponse Estimate
+//
+// What a proposed resource, a resize or a changeset costs, as a monthly
+// equivalent in the catalogue's currency with a line for each part, what
+// goes on being charged while stopped, and the usage metered on top. It
+// reads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the
+// organization's plan allowances when it is known. It changes nothing.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/estimates (the `Estimate` operationId).
+func (c *ClientWithResponses) EstimateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EstimateResponse, error) {
+	rsp, err := c.EstimateWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEstimateResponse(rsp)
+}
+
+// EstimateWithResponse Estimate
+//
+// What a proposed resource, a resize or a changeset costs, as a monthly
+// equivalent in the catalogue's currency with a line for each part, what
+// goes on being charged while stopped, and the usage metered on top. It
+// reads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the
+// organization's plan allowances when it is known. It changes nothing.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/estimates (the `Estimate` operationId).
+func (c *ClientWithResponses) EstimateWithResponse(ctx context.Context, body EstimateJSONRequestBody, reqEditors ...RequestEditorFn) (*EstimateResponse, error) {
+	rsp, err := c.Estimate(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEstimateResponse(rsp)
 }
 
 // ListGithubReposWithResponse List Github Repos
@@ -41380,7 +42594,7 @@ func (c *ClientWithResponses) GithubSetupCallbackWithResponse(ctx context.Contex
 // GithubSetupAuthorizedWithResponse Github Setup Authorized
 //
 // Second half of the installation callback: GitHub has authorised the user, so
-// link the installation only if that user can access it.
+// link the installation only if that user administers it.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -43657,8 +44871,10 @@ func (c *ClientWithResponses) ListEnvWithResponse(ctx context.Context, resourceI
 //
 // Creates or updates the given variables. Others are left alone, and
 // connection-managed keys are read-only. References are checked and refused
-// with 422 unknown_reference when they do not resolve. Changes apply on the
-// next restart or deploy.
+// with 422 unknown_reference when they do not resolve. A reference to a
+// database, cache, bucket or queue the service is not connected to connects
+// it, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes
+// apply on the next restart or deploy.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -43675,8 +44891,10 @@ func (c *ClientWithResponses) PutEnvWithBodyWithResponse(ctx context.Context, re
 //
 // Creates or updates the given variables. Others are left alone, and
 // connection-managed keys are read-only. References are checked and refused
-// with 422 unknown_reference when they do not resolve. Changes apply on the
-// next restart or deploy.
+// with 422 unknown_reference when they do not resolve. A reference to a
+// database, cache, bucket or queue the service is not connected to connects
+// it, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes
+// apply on the next restart or deploy.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -43737,6 +44955,23 @@ func (c *ClientWithResponses) PutRawEnvWithResponse(ctx context.Context, resourc
 		return nil, err
 	}
 	return ParsePutRawEnvResponse(rsp)
+}
+
+// ResourceReferenceTargetsWithResponse Resource Reference Targets
+//
+// The services, databases and shared variables this service's variables can
+// reference as ${{name.KEY}}, with the keys each offers, for autocomplete.
+// Names only; values are never returned.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/resources/{resource_id}/env/references (the `ResourceReferenceTargets` operationId).
+func (c *ClientWithResponses) ResourceReferenceTargetsWithResponse(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ResourceReferenceTargetsResponse, error) {
+	rsp, err := c.ResourceReferenceTargets(ctx, resourceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResourceReferenceTargetsResponse(rsp)
 }
 
 // DeleteEnvVarWithResponse Delete Env Var
@@ -45490,6 +46725,46 @@ func ParseListPlansResponse(rsp *http.Response) (*ListPlansResponse, error) {
 	return response, nil
 }
 
+// ParseListPricesResponse parses an HTTP response from a ListPricesWithResponse call
+func ParseListPricesResponse(rsp *http.Response) (*ListPricesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPricesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PriceCatalogue
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseServerCatalogResponse parses an HTTP response from a ServerCatalogWithResponse call
 func ParseServerCatalogResponse(rsp *http.Response) (*ServerCatalogResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -46955,6 +48230,46 @@ func ParsePutRawSharedVariablesResponse(rsp *http.Response) (*PutRawSharedVariab
 	return response, nil
 }
 
+// ParseEnvironmentReferenceTargetsResponse parses an HTTP response from a EnvironmentReferenceTargetsWithResponse call
+func ParseEnvironmentReferenceTargetsResponse(rsp *http.Response) (*EnvironmentReferenceTargetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvironmentReferenceTargetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReferenceTargetsOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteSharedVariableResponse parses an HTTP response from a DeleteSharedVariableWithResponse call
 func ParseDeleteSharedVariableResponse(rsp *http.Response) (*DeleteSharedVariableResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -47007,6 +48322,46 @@ func ParseRevealSharedVariableResponse(rsp *http.Response) (*RevealSharedVariabl
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest RevealedEnvVar
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEstimateResponse parses an HTTP response from a EstimateWithResponse call
+func ParseEstimateResponse(rsp *http.Response) (*EstimateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EstimateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EstimateOut
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -51895,6 +53250,46 @@ func ParsePutRawEnvResponse(rsp *http.Response) (*PutRawEnvResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []EnvVarOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResourceReferenceTargetsResponse parses an HTTP response from a ResourceReferenceTargetsWithResponse call
+func ParseResourceReferenceTargetsResponse(rsp *http.Response) (*ResourceReferenceTargetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResourceReferenceTargetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReferenceTargetsOut
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

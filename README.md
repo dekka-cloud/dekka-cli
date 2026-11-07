@@ -42,7 +42,7 @@ In CI, set `DEKKA_TOKEN` to the key instead of running `dekka login`, because it
 | `dekka deploy <service> [--branch] [--commit]` | Starts a deployment of a service |
 | `dekka status <service>` | Shows a service and its five most recent deployments |
 | `dekka logs <service> [--deployment <id>] [--follow]` | Prints a service's runtime logs, or one deployment's build and deploy logs |
-| `dekka rollback <deployment> [--yes]` | Deploys an earlier deployment's image again |
+| `dekka rollback <deployment> [--keep-current-variables] [--yes]` | Deploys an earlier deployment again |
 
 A service is named by its name, slug or id. The same name can appear in several projects and environments, so `--project` and `--environment` narrow the search, and a name that still matches more than one service is refused with each match listed.
 
@@ -58,7 +58,7 @@ dekka status api
 
 `dekka deploy` prints the new deployment's id and the command that follows it. Following a deployment's logs streams them until the deployment finishes, and the command exits with status 1 unless it ends healthy, so a CI job can deploy and wait on the result. Following runtime logs keeps printing new lines until you press Ctrl-C.
 
-`dekka rollback` deploys the image that an earlier healthy deployment ran, with the settings it ran with and the service's current variables. Before it calls the API it names the service, its project and environment, and the deployment it returns to, and asks you to confirm. `--yes` skips the question, and without a terminal the command needs `--yes`.
+`dekka rollback` deploys the image that an earlier healthy deployment ran, with the settings and the variables it ran with; `--keep-current-variables` keeps the service's variables as they are now instead. Databases, volumes and buckets are not changed, so their data and any migrations stay as they are. Before it calls the API it names the service, its project and environment, and the deployment it returns to, and asks you to confirm. `--yes` skips the question, and without a terminal the command needs `--yes`.
 
 ## Keys and permissions
 
@@ -72,7 +72,7 @@ When a key can't see something the API answers 404, and when it can see it but n
 
 ## What comes next
 
-`dekka plan` and `dekka apply` will preview and apply an environment described in a `dekka.toml` file once the API supports environment files, and neither command exists yet. Rollback will also return to the variables the earlier deployment ran with, with an option to keep the current ones, once the API records them.
+`dekka plan` and `dekka apply` will preview and apply an environment described in a `dekka.toml` file once the API supports environment files, and neither command exists yet.
 
 ## Development
 

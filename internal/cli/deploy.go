@@ -138,13 +138,14 @@ func source(d api.DeploymentOut) string {
 }
 
 func (a *App) rollbackCmd() *cobra.Command {
-	var yes bool
+	var yes, keepCurrent bool
 	cmd := &cobra.Command{
 		Use:   "rollback <deployment>",
 		Short: "Deploy an earlier deployment's image again",
-		Long: "rollback deploys the image an earlier healthy deployment ran, with the settings it ran with and the\n" +
-			"service's current variables. It names the service and deployment and asks before it starts, unless you\n" +
-			"pass --yes. dekka status <service> lists recent deployments and their ids.",
+		Long: "rollback deploys the image an earlier healthy deployment ran, with the settings and the variables it ran\n" +
+			"with; --keep-current-variables keeps the service's variables as they are now instead. Databases, volumes and\n" +
+			"buckets are not changed, so their data and any migrations stay as they are. It names the service and\n" +
+			"deployment and asks before it starts, unless you pass --yes. dekka status <service> lists recent deployments.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := uuid.Parse(args[0])
@@ -173,8 +174,12 @@ func (a *App) rollbackCmd() *cobra.Command {
 				if what != "" {
 					what = ", which ran " + what
 				}
-				ok, err := a.confirm(fmt.Sprintf("Roll back %s in %s to deployment %s from %s%s? The service keeps its current variables.",
-					svc.Name, svc.where(), target.Id, when(target.CreatedAt), what))
+				vars := "Its variables return to the ones that deployment ran with."
+				if keepCurrent {
+					vars = "The service keeps its current variables."
+				}
+				ok, err := a.confirm(fmt.Sprintf("Roll back %s in %s to deployment %s from %s%s? %s Databases and their data are not changed.",
+					svc.Name, svc.where(), target.Id, when(target.CreatedAt), what, vars))
 				if err != nil {
 					return err
 				}
@@ -182,7 +187,11 @@ func (a *App) rollbackCmd() *cobra.Command {
 					return errors.New("rollback cancelled")
 				}
 			}
-			r, err := s.api.RollbackDeploymentWithResponse(ctx, id)
+			body := api.RollbackRequest{}
+			if keepCurrent {
+				body.KeepCurrentVariables = &keepCurrent
+			}
+			r, err := s.api.RollbackDeploymentWithResponse(ctx, id, body)
 			if err != nil {
 				return err
 			}
@@ -199,5 +208,6 @@ func (a *App) rollbackCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "roll back without asking")
+	cmd.Flags().BoolVar(&keepCurrent, "keep-current-variables", false, "keep the service's current variables instead of the ones that deployment ran with")
 	return cmd
 }
