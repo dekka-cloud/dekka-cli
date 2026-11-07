@@ -1,12 +1,16 @@
 version: 2
 # Actions are pinned to commit SHAs and images to digests; this keeps them current.
-# Each ecosystem's updates arrive as one weekly pull request, to spare the CI runners.
+# Each ecosystem's minor and patch updates arrive as one weekly pull request, to spare the CI
+# runners. Major versions change behaviour, so they are taken deliberately, one at a time.
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all:
         patterns: ["*"]
@@ -15,6 +19,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all:
         patterns: ["*"]
