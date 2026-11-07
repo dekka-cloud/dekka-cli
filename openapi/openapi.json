@@ -2038,6 +2038,48 @@
         }
       }
     },
+    "/v1/catalog/prices": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "List Prices",
+        "description": "PostgreSQL and Redis tiers, object storage rates, and what goes on\nbeing charged while a resource is stopped, from app/catalog/prices.yaml.\nThe prices are a hypothesis in GHS, before tax. A tier id is a SKU that\nPOST /v1/resources accepts as `spec.sku`, and POST /v1/estimates prices\nwith these. Billing moves to them once the migration in\ndocs/billing-catalogue-migration.md is approved.",
+        "operationId": "list_prices",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceCatalogue"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/regions": {
       "get": {
         "tags": [
@@ -2680,7 +2722,7 @@
           "environments"
         ],
         "summary": "Update Environment",
-        "description": "Renames the environment and its slug. Private hostnames\n(`<service>.<environment>.dekka.internal`) and DEKKA_ENVIRONMENT follow\nthe new name from each service's next deploy.",
+        "description": "Renames the environment and its slug. DEKKA_ENVIRONMENT follows the new\nname from each service's next deploy. Private hostnames\n(`<slug>.internal.<region>.dekka.cloud`) carry no environment, so they stay.",
         "operationId": "update_environment",
         "parameters": [
           {
@@ -3718,7 +3760,7 @@
           "env"
         ],
         "summary": "Put Env",
-        "description": "Creates or updates the given variables. Others are left alone, and\nconnection-managed keys are read-only. References are checked and refused\nwith 422 unknown_reference when they do not resolve. Changes apply on the\nnext restart or deploy.",
+        "description": "Creates or updates the given variables. Others are left alone, and\nconnection-managed keys are read-only. References are checked and refused\nwith 422 unknown_reference when they do not resolve. A reference to a\ndatabase, cache, bucket or queue the service is not connected to connects\nit, so `${{db.DATABASE_URL}}` reads the service's own credentials. Changes\napply on the next restart or deploy.",
         "operationId": "put_env",
         "parameters": [
           {
@@ -4350,6 +4392,114 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RevealedEnvVar"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/resources/{resource_id}/env/references": {
+      "get": {
+        "tags": [
+          "env"
+        ],
+        "summary": "Resource Reference Targets",
+        "description": "The services, databases and shared variables this service's variables can\nreference as ${{name.KEY}}, with the keys each offers, for autocomplete.\nNames only; values are never returned.",
+        "operationId": "resource_reference_targets",
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Resource Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceTargetsOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/environments/{environment_id}/variables/references": {
+      "get": {
+        "tags": [
+          "env"
+        ],
+        "summary": "Environment Reference Targets",
+        "description": "What shared variables can reference, for autocomplete. A database's\nconnection variables are left out, since they belong to the service that\nconnects. Names only; values are never returned.",
+        "operationId": "environment_reference_targets",
+        "parameters": [
+          {
+            "name": "environment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Environment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceTargetsOut"
                 }
               }
             }
@@ -8673,7 +8823,7 @@
           "deployments"
         ],
         "summary": "Rollback Deployment",
-        "description": "Deploys an earlier healthy deployment's image again, with the settings\nit ran with and the service's current variables. Returns the new\ndeployment, whose trigger is `rollback`. A deployment without a recorded\nimage answers 409 no_image, and the one serving now 409 already_active.",
+        "description": "Deploys an earlier healthy deployment's image again, with the settings\nand the variables it ran with, or with the service's current variables\nwhen `keep_current_variables` is true. Databases, volumes and buckets are\nnot changed, so their data and any migrations stay as they are. Returns\nthe new deployment, whose trigger is `rollback`. A deployment without a\nrecorded image answers 409 no_image, the one serving now 409\nalready_active, and one from before variables were recorded 409\nvariables_not_recorded unless the current variables are kept.",
         "operationId": "rollback_deployment",
         "parameters": [
           {
@@ -8687,6 +8837,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RollbackRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -9630,7 +9797,7 @@
           "github"
         ],
         "summary": "Github Setup Authorized",
-        "description": "Second half of the installation callback: GitHub has authorised the user, so\nlink the installation only if that user can access it.",
+        "description": "Second half of the installation callback: GitHub has authorised the user, so\nlink the installation only if that user administers it.",
         "operationId": "github_setup_authorized",
         "parameters": [
           {
@@ -11663,6 +11830,77 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SpendLimitOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/estimates": {
+      "post": {
+        "tags": [
+          "estimates"
+        ],
+        "summary": "Estimate",
+        "description": "What a proposed resource, a resize or a changeset costs, as a monthly\nequivalent in the catalogue's currency with a line for each part, what\ngoes on being charged while stopped, and the usage metered on top. It\nreads app/catalog/plans.yaml, servers.yaml and prices.yaml and counts the\norganization's plan allowances when it is known. It changes nothing.",
+        "operationId": "estimate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceEstimateIn"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResizeEstimateIn"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ChangesetEstimateIn"
+                  }
+                ],
+                "title": "Body",
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "resource": "#/components/schemas/ResourceEstimateIn",
+                    "resize": "#/components/schemas/ResizeEstimateIn",
+                    "changeset": "#/components/schemas/ChangesetEstimateIn"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstimateOut"
                 }
               }
             }
@@ -15551,6 +15789,28 @@
         ],
         "title": "ChangeTarget"
       },
+      "ChangesetEstimateIn": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "changeset",
+            "title": "Type"
+          },
+          "changeset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Changeset Id",
+            "description": "A manual draft, or a template, Compose or blueprint plan"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "changeset_id"
+        ],
+        "title": "ChangesetEstimateIn"
+      },
       "ChangesetOut": {
         "properties": {
           "id": {
@@ -16526,7 +16786,8 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 255
+                "maxLength": 255,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -17198,6 +17459,58 @@
         ],
         "title": "DataLocationSource"
       },
+      "DataTier": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z]+-[a-z]+-v[0-9]+$",
+            "title": "Id",
+            "description": "An immutable SKU. A change of price or allocation is a new id."
+          },
+          "tier": {
+            "type": "string",
+            "pattern": "^[a-z]+$",
+            "title": "Tier"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "memory_mib": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Memory Mib"
+          },
+          "storage_gb": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage Gb",
+            "description": "Postgres only"
+          },
+          "monthly_price": {
+            "type": "string",
+            "title": "Monthly Price"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tier",
+          "name",
+          "memory_mib",
+          "monthly_price"
+        ],
+        "title": "DataTier"
+      },
       "DayMetrics": {
         "properties": {
           "requests": {
@@ -17562,6 +17875,28 @@
             "title": "Rollback Of Id",
             "description": "For rollbacks, the deployment whose image this redeployed"
           },
+          "keep_current_variables": {
+            "type": "boolean",
+            "title": "Keep Current Variables",
+            "description": "For rollbacks, true when it ran with the service's variables of the time rather than the variables of the deployment it rolled back to"
+          },
+          "variables_recorded": {
+            "type": "boolean",
+            "title": "Variables Recorded",
+            "description": "Whether Dekka recorded the variables this deployment was sent with, which a rollback to it restores. Values are never returned."
+          },
+          "variables_changed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variables Changed",
+            "description": "Whether the service's variables now differ from the ones this deployment was sent with. Null when they were not recorded, the service is deleted, or a reference no longer resolves."
+          },
           "config_sources": {
             "anyOf": [
               {
@@ -17705,6 +18040,9 @@
           "commit_author",
           "image_ref",
           "rollback_of_id",
+          "keep_current_variables",
+          "variables_recorded",
+          "variables_changed",
           "config_sources",
           "effective_spec",
           "cancel_reason",
@@ -18582,6 +18920,215 @@
           "error"
         ],
         "title": "ErrorEnvelope"
+      },
+      "EstimateLineOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "A resource kind, service for applications, workers and jobs, or volume"
+          },
+          "resource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource",
+            "description": "The resource's name, when it has one"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete"
+            ],
+            "title": "Action"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "sku": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sku",
+            "description": "The tier or server size it is priced at"
+          },
+          "monthly": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly",
+            "description": "After the change. Null when the catalogue has no price for it."
+          },
+          "current_monthly": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Monthly",
+            "description": "Today, for resizes and changesets"
+          },
+          "included": {
+            "type": "boolean",
+            "title": "Included",
+            "description": "Covered by the plan the organization already pays for"
+          },
+          "bills_while_stopped": {
+            "type": "boolean",
+            "title": "Bills While Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "resource",
+          "action",
+          "label",
+          "detail",
+          "sku",
+          "monthly",
+          "current_monthly",
+          "included",
+          "bills_while_stopped"
+        ],
+        "title": "EstimateLineOut"
+      },
+      "EstimateOut": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "hypothesis": {
+            "type": "boolean",
+            "title": "Hypothesis"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan",
+            "description": "The plan the estimate counts allowances from, when known"
+          },
+          "monthly": {
+            "type": "string",
+            "title": "Monthly",
+            "description": "The monthly equivalent (730 hours) of what is proposed"
+          },
+          "current_monthly": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Monthly",
+            "description": "Resizes and changesets: the same resources today"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change",
+            "description": "monthly minus current_monthly"
+          },
+          "while_stopped": {
+            "type": "string",
+            "title": "While Stopped",
+            "description": "The part of monthly that goes on being charged while stopped"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/EstimateLineOut"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "metered": {
+            "items": {
+              "$ref": "#/components/schemas/MeteredChargeOut"
+            },
+            "type": "array",
+            "title": "Metered",
+            "description": "Usage charged on top, which the monthly figure leaves out"
+          },
+          "while_stopped_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "While Stopped Notes"
+          },
+          "included": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Included"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "Limits of the plan the proposal goes beyond, and anything unpriced"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "hypothesis",
+          "plan",
+          "monthly",
+          "current_monthly",
+          "change",
+          "while_stopped",
+          "lines",
+          "metered",
+          "while_stopped_notes",
+          "included",
+          "warnings"
+        ],
+        "title": "EstimateOut",
+        "description": "An estimate at the catalogue's prices. Prices are a hypothesis during\nthe pilot, and usage that depends on traffic is listed in `metered`\nrather than guessed."
       },
       "Features": {
         "properties": {
@@ -20367,6 +20914,46 @@
         ],
         "title": "MeterUsageOut"
       },
+      "MeteredChargeOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "unit_price": {
+            "type": "string",
+            "title": "Unit Price",
+            "description": "The price of `per` units"
+          },
+          "per": {
+            "type": "integer",
+            "title": "Per"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "What is metered, from when, and at what price, in a sentence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "unit_price",
+          "per",
+          "description"
+        ],
+        "title": "MeteredChargeOut"
+      },
       "MetricPointOut": {
         "properties": {
           "ts": {
@@ -20784,6 +21371,49 @@
           "usage_alerts"
         ],
         "title": "NotificationPreferences"
+      },
+      "ObjectStoragePrices": {
+        "properties": {
+          "bands": {
+            "items": {
+              "$ref": "#/components/schemas/StorageBand"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Bands"
+          },
+          "monthly_minimum": {
+            "type": "string",
+            "title": "Monthly Minimum"
+          },
+          "egress_gb": {
+            "type": "string",
+            "title": "Egress Gb"
+          },
+          "ingress_gb": {
+            "type": "string",
+            "title": "Ingress Gb"
+          },
+          "writes_per_100k": {
+            "type": "string",
+            "title": "Writes Per 100K"
+          },
+          "reads_per_100k": {
+            "type": "string",
+            "title": "Reads Per 100K"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bands",
+          "monthly_minimum",
+          "egress_gb",
+          "ingress_gb",
+          "writes_per_100k",
+          "reads_per_100k"
+        ],
+        "title": "ObjectStoragePrices"
       },
       "ObjectStorageSpec": {
         "properties": {
@@ -21630,8 +22260,39 @@
         "type": "object",
         "title": "PlanTemplateRequest"
       },
+      "PostgresPrices": {
+        "properties": {
+          "tiers": {
+            "items": {
+              "$ref": "#/components/schemas/DataTier"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Tiers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tiers"
+        ],
+        "title": "PostgresPrices"
+      },
       "PostgresSpec": {
         "properties": {
+          "sku": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 63
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sku",
+            "description": "A tier id from GET /v1/catalog/prices, such as postgres-seed-v1. The tier sets memory_mib and storage_mib, so leave them out or give the tier's values. Without one, the sizes given are used as they are."
+          },
           "version": {
             "type": "string",
             "enum": [
@@ -21833,6 +22494,64 @@
           "closed"
         ],
         "title": "PreviewStatus"
+      },
+      "PriceCatalogue": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency"
+          },
+          "hypothesis": {
+            "type": "boolean",
+            "title": "Hypothesis"
+          },
+          "hours_per_month": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Hours Per Month"
+          },
+          "postgres": {
+            "$ref": "#/components/schemas/PostgresPrices"
+          },
+          "redis": {
+            "$ref": "#/components/schemas/RedisPrices"
+          },
+          "object_storage": {
+            "$ref": "#/components/schemas/ObjectStoragePrices"
+          },
+          "while_stopped": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StoppedRule"
+            },
+            "propertyNames": {
+              "enum": [
+                "application",
+                "postgres",
+                "redis",
+                "object_storage",
+                "queue",
+                "ai_gateway_binding",
+                "virtual_machine",
+                "volume"
+              ]
+            },
+            "type": "object",
+            "title": "While Stopped"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "currency",
+          "hypothesis",
+          "hours_per_month",
+          "postgres",
+          "redis",
+          "object_storage",
+          "while_stopped"
+        ],
+        "title": "PriceCatalogue"
       },
       "PrivacyOverrideIn": {
         "properties": {
@@ -22773,8 +23492,39 @@
         ],
         "title": "RedisKeysOut"
       },
+      "RedisPrices": {
+        "properties": {
+          "tiers": {
+            "items": {
+              "$ref": "#/components/schemas/DataTier"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Tiers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tiers"
+        ],
+        "title": "RedisPrices"
+      },
       "RedisSpec": {
         "properties": {
+          "sku": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 63
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sku",
+            "description": "A tier id from GET /v1/catalog/prices, such as redis-seed-v1. The tier sets memory_mib, so leave it out or give the tier's values. Without one, the sizes given are used as they are."
+          },
           "version": {
             "type": "string",
             "enum": [
@@ -22823,6 +23573,70 @@
         "additionalProperties": false,
         "type": "object",
         "title": "RedisSpec"
+      },
+      "ReferenceTarget": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "The service or resource name to write in ${{name.KEY}}"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keys"
+          },
+          "connected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected",
+            "description": "For a database, cache, bucket or queue: whether this service is connected to it. Referencing one it is not connected to connects it on save."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "keys"
+        ],
+        "title": "ReferenceTarget",
+        "description": "Something a variable can reference, with the names it offers; never values."
+      },
+      "ReferenceTargetsOut": {
+        "properties": {
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceTarget"
+            },
+            "type": "array",
+            "title": "Services"
+          },
+          "shared": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Shared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "services",
+          "shared"
+        ],
+        "title": "ReferenceTargetsOut"
       },
       "ReferrerCount": {
         "properties": {
@@ -22995,6 +23809,34 @@
         ],
         "title": "RepoOut"
       },
+      "ResizeEstimateIn": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "resize",
+            "title": "Type"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Spec",
+            "description": "The proposed settings, laid over the current spec. Nested settings such as runtime are merged, and a new sku replaces the sizes the old one set."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "resource_id",
+          "spec"
+        ],
+        "title": "ResizeEstimateIn"
+      },
       "ResizeServerRequest": {
         "properties": {
           "size_id": {
@@ -23026,6 +23868,83 @@
           "size_gb"
         ],
         "title": "ResizeVolumeRequest"
+      },
+      "ResourceEstimateIn": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "resource",
+            "title": "Type"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ResourceKind"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Spec",
+            "description": "The spec as it would be sent to create it"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 63
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "volume_gb": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Gb",
+            "description": "A volume created with it"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id",
+            "description": "Prices against the project's organization's plan and what it already uses"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id",
+            "description": "The same, when there is no project yet"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "kind"
+        ],
+        "title": "ResourceEstimateIn"
       },
       "ResourceKind": {
         "type": "string",
@@ -23199,7 +24118,7 @@
               }
             ],
             "title": "Private Hostname",
-            "description": "<name>.<environment slug>.dekka.internal, reachable from the same environment"
+            "description": "<slug>.internal.<region>.dekka.cloud, the name services in the same environment reach this resource by. The engine's reported internal hostname when it has one"
           },
           "next_runs": {
             "anyOf": [
@@ -23227,6 +24146,14 @@
               }
             ],
             "description": "The public host and port that forward TCP to this database, when its spec has tcp_proxy on and the engine reports the endpoint; null otherwise"
+          },
+          "pending_settings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pending Settings",
+            "description": "Spec fields that are on but whose effect the engine has not reported, while no operation is in flight, such as tcp_proxy without a tcp_proxy endpoint. Sending the same spec again applies them again"
           },
           "created_at": {
             "type": "string",
@@ -23335,6 +24262,18 @@
           "viewer"
         ],
         "title": "Role"
+      },
+      "RollbackRequest": {
+        "properties": {
+          "keep_current_variables": {
+            "type": "boolean",
+            "title": "Keep Current Variables",
+            "description": "Run the earlier image with the service's variables as they are now, instead of the variables that deployment ran with",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RollbackRequest"
       },
       "RotateOut": {
         "properties": {
@@ -24884,6 +25823,54 @@
           "plan_id"
         ],
         "title": "StartCheckoutRequest"
+      },
+      "StoppedRule": {
+        "properties": {
+          "bills": {
+            "type": "boolean",
+            "title": "Bills"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bills",
+          "reason"
+        ],
+        "title": "StoppedRule"
+      },
+      "StorageBand": {
+        "properties": {
+          "up_to_gb": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up To Gb",
+            "description": "The band's upper bound in GB, or null for the last band"
+          },
+          "gb_month": {
+            "type": "string",
+            "title": "Gb Month"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "up_to_gb",
+          "gb_month"
+        ],
+        "title": "StorageBand"
       },
       "StreamOptions": {
         "properties": {
