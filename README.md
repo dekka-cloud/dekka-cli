@@ -4,7 +4,15 @@
 
 ## Install
 
-On macOS and Linux the install script downloads the latest release, checks it against the release's `checksums.txt`, and puts `dekka` in `/usr/local/bin`, or in `~/.local/bin` when that directory isn't writable.
+With Node.js installed, `npx` runs the CLI with nothing to install first, so one command signs a new machine in.
+
+```sh
+npx dekka@latest login
+```
+
+The package downloads the release for your machine on first use, checks it against the release's checksums, and keeps it for the next run. `npm install -g dekka` puts `dekka` on your `PATH`, which is how the rest of this page writes the commands.
+
+Without Node.js, on macOS and Linux the install script downloads the latest release, checks it against the release's `checksums.txt`, and puts `dekka` in `/usr/local/bin`, or in `~/.local/bin` when that directory isn't writable.
 
 ```sh
 curl -fsSL https://dekka.cloud/install.sh | sh
