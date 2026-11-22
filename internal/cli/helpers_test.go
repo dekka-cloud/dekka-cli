@@ -78,6 +78,14 @@ func newFakeAPI(t *testing.T) *fakeAPI {
 		if !strings.HasPrefix(r.Header.Get("User-Agent"), "dekka-cli/") {
 			t.Errorf("User-Agent = %q", r.Header.Get("User-Agent"))
 		}
+		// The CLI signs in with no key, so those two calls must not send one.
+		if strings.HasPrefix(r.URL.Path, "/v1/cli/logins") {
+			if r.Header.Get("Authorization") != "" {
+				t.Errorf("%s sent an Authorization header", r.URL.Path)
+			}
+			f.mux.ServeHTTP(w, r)
+			return
+		}
 		if r.Header.Get("Authorization") != "Bearer "+testToken {
 			writeJSON(w, http.StatusUnauthorized, `{"error":{"code":"invalid_api_key","message":"The API key is invalid, expired or revoked.","request_id":"req_1"}}`)
 			return

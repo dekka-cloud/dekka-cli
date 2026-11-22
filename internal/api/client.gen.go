@@ -457,6 +457,30 @@ func (e ChatMessageInRole) Valid() bool {
 	}
 }
 
+// Defines values for CliLoginOutState.
+const (
+	CliLoginOutStateApproved CliLoginOutState = "approved"
+	CliLoginOutStateDenied   CliLoginOutState = "denied"
+	CliLoginOutStateExpired  CliLoginOutState = "expired"
+	CliLoginOutStatePending  CliLoginOutState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the CliLoginOutState enum.
+func (e CliLoginOutState) Valid() bool {
+	switch e {
+	case CliLoginOutStateApproved:
+		return true
+	case CliLoginOutStateDenied:
+		return true
+	case CliLoginOutStateExpired:
+		return true
+	case CliLoginOutStatePending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ComposeNoteLevel.
 const (
 	ComposeNoteLevelAdjusted    ComposeNoteLevel = "adjusted"
@@ -2643,6 +2667,11 @@ type ApplicationSpec_Source struct {
 	union json.RawMessage
 }
 
+// ApproveCliLoginRequest defines model for ApproveCliLoginRequest.
+type ApproveCliLoginRequest struct {
+	OrganizationId openapi_types.UUID `json:"organization_id"`
+}
+
 // AuthResponse defines model for AuthResponse.
 type AuthResponse struct {
 	User UserOut `json:"user"`
@@ -3007,6 +3036,55 @@ type CheckoutOut struct {
 
 	// Status pending, succeeded, failed or abandoned
 	Status string `json:"status"`
+}
+
+// CliLoginKey defines model for CliLoginKey.
+type CliLoginKey struct {
+	// Key The API key the CLI saves. It is given once.
+	Key          string               `json:"key"`
+	Organization CliLoginOrganization `json:"organization"`
+}
+
+// CliLoginOrganization defines model for CliLoginOrganization.
+type CliLoginOrganization struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+	Slug string             `json:"slug"`
+}
+
+// CliLoginOut An attempt as the person approving sees it.
+type CliLoginOut struct {
+	DeviceName  string           `json:"device_name"`
+	ExpiresAt   time.Time        `json:"expires_at"`
+	RequestedAt time.Time        `json:"requested_at"`
+	State       CliLoginOutState `json:"state"`
+	UserCode    string           `json:"user_code"`
+}
+
+// CliLoginOutState defines model for CliLoginOut.State.
+type CliLoginOutState string
+
+// CliLoginStarted defines model for CliLoginStarted.
+type CliLoginStarted struct {
+	// DeviceCode The CLI's secret for collecting the key. It is shown only in this response.
+	DeviceCode string `json:"device_code"`
+
+	// ExpiresIn Seconds until the attempt can no longer be approved or collected
+	ExpiresIn int `json:"expires_in"`
+
+	// Interval Seconds the CLI should wait between asks for the key
+	Interval int `json:"interval"`
+
+	// UserCode The short code the person confirms in the dashboard, such as BCDF-GHJK
+	UserCode string `json:"user_code"`
+
+	// VerificationUrl Where the person approves, with the code already filled in
+	VerificationUrl string `json:"verification_url"`
+}
+
+// CollectCliLoginRequest defines model for CollectCliLoginRequest.
+type CollectCliLoginRequest struct {
+	DeviceCode string `json:"device_code"`
 }
 
 // ComposeFileTranslation defines model for ComposeFileTranslation.
@@ -5648,6 +5726,12 @@ type StartCheckoutRequest struct {
 	PlanId string `json:"plan_id"`
 }
 
+// StartCliLoginRequest defines model for StartCliLoginRequest.
+type StartCliLoginRequest struct {
+	// DeviceName What to call this machine on the approval page and in the key's name, usually its hostname
+	DeviceName *string `json:"device_name,omitempty"`
+}
+
 // StoppedRule defines model for StoppedRule.
 type StoppedRule struct {
 	Bills  bool   `json:"bills"`
@@ -6424,6 +6508,15 @@ type ValidateBlueprintJSONRequestBody = BlueprintIn
 
 // DeployChangesetJSONRequestBody defines body for DeployChangeset for application/json ContentType.
 type DeployChangesetJSONRequestBody = DeployChangesetRequest
+
+// StartCliLoginJSONRequestBody defines body for StartCliLogin for application/json ContentType.
+type StartCliLoginJSONRequestBody = StartCliLoginRequest
+
+// CollectCliLoginJSONRequestBody defines body for CollectCliLogin for application/json ContentType.
+type CollectCliLoginJSONRequestBody = CollectCliLoginRequest
+
+// ApproveCliLoginJSONRequestBody defines body for ApproveCliLogin for application/json ContentType.
+type ApproveCliLoginJSONRequestBody = ApproveCliLoginRequest
 
 // TranslateComposeJSONRequestBody defines body for TranslateCompose for application/json ContentType.
 type TranslateComposeJSONRequestBody = ComposeIn
@@ -8327,6 +8420,89 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/changesets/{changeset_id}/discard (the `DiscardChangeset` operationId).
 	DiscardChangeset(ctx context.Context, changesetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartCliLoginWithBody Start Cli Login
+	//
+	// Start signing the CLI in. Needs no credentials. Show the person
+	// `user_code` and `verification_url`, then ask `POST /cli/logins/token`
+	// every `interval` seconds until it answers with the key.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/cli/logins (the `StartCliLogin` operationId).
+	StartCliLoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartCliLogin Start Cli Login
+	//
+	// Start signing the CLI in. Needs no credentials. Show the person
+	// `user_code` and `verification_url`, then ask `POST /cli/logins/token`
+	// every `interval` seconds until it answers with the key.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/cli/logins (the `StartCliLogin` operationId).
+	StartCliLogin(ctx context.Context, body StartCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CollectCliLoginWithBody Collect Cli Login
+	//
+	// Collect the key once the person has approved. Until then this answers
+	// 400 with the code `authorization_pending`, and the CLI asks again. It
+	// answers `access_denied` if they refused and `expired_token` once the
+	// attempt is over or the key has been collected.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/cli/logins/token (the `CollectCliLogin` operationId).
+	CollectCliLoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CollectCliLogin Collect Cli Login
+	//
+	// Collect the key once the person has approved. Until then this answers
+	// 400 with the code `authorization_pending`, and the CLI asks again. It
+	// answers `access_denied` if they refused and `expired_token` once the
+	// attempt is over or the key has been collected.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/cli/logins/token (the `CollectCliLogin` operationId).
+	CollectCliLogin(ctx context.Context, body CollectCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCliLogin Get Cli Login
+	//
+	// What the dashboard shows before a sign-in is approved: the machine that
+	// asked, when, and whether the attempt is still open.
+	//
+	// Corresponds with GET /v1/cli/logins/{user_code} (the `GetCliLogin` operationId).
+	GetCliLogin(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveCliLoginWithBody Approve Cli Login
+	//
+	// Approve a sign-in for one organisation, which needs the admin role
+	// there, as creating a key does. It mints a key with the read and write
+	// scopes, named after the machine.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/cli/logins/{user_code}/approve (the `ApproveCliLogin` operationId).
+	ApproveCliLoginWithBody(ctx context.Context, userCode string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveCliLogin Approve Cli Login
+	//
+	// Approve a sign-in for one organisation, which needs the admin role
+	// there, as creating a key does. It mints a key with the read and write
+	// scopes, named after the machine.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/cli/logins/{user_code}/approve (the `ApproveCliLogin` operationId).
+	ApproveCliLogin(ctx context.Context, userCode string, body ApproveCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DenyCliLogin Deny Cli Login
+	//
+	// Refuse a sign-in, so the CLI that asked stops waiting.
+	//
+	// Corresponds with POST /v1/cli/logins/{user_code}/deny (the `DenyCliLogin` operationId).
+	DenyCliLogin(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// TranslateComposeWithBody Translate Compose
 	//
@@ -11579,6 +11755,169 @@ func (c *Client) DeployChangeset(ctx context.Context, changesetId openapi_types.
 // Corresponds with POST /v1/changesets/{changeset_id}/discard (the `DiscardChangeset` operationId).
 func (c *Client) DiscardChangeset(ctx context.Context, changesetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDiscardChangesetRequest(c.Server, changesetId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartCliLoginWithBody Start Cli Login
+//
+// Start signing the CLI in. Needs no credentials. Show the person
+// `user_code` and `verification_url`, then ask `POST /cli/logins/token`
+// every `interval` seconds until it answers with the key.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/cli/logins (the `StartCliLogin` operationId).
+func (c *Client) StartCliLoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartCliLoginRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartCliLogin Start Cli Login
+//
+// Start signing the CLI in. Needs no credentials. Show the person
+// `user_code` and `verification_url`, then ask `POST /cli/logins/token`
+// every `interval` seconds until it answers with the key.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/cli/logins (the `StartCliLogin` operationId).
+func (c *Client) StartCliLogin(ctx context.Context, body StartCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartCliLoginRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CollectCliLoginWithBody Collect Cli Login
+//
+// Collect the key once the person has approved. Until then this answers
+// 400 with the code `authorization_pending`, and the CLI asks again. It
+// answers `access_denied` if they refused and `expired_token` once the
+// attempt is over or the key has been collected.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/cli/logins/token (the `CollectCliLogin` operationId).
+func (c *Client) CollectCliLoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCollectCliLoginRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CollectCliLogin Collect Cli Login
+//
+// Collect the key once the person has approved. Until then this answers
+// 400 with the code `authorization_pending`, and the CLI asks again. It
+// answers `access_denied` if they refused and `expired_token` once the
+// attempt is over or the key has been collected.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/cli/logins/token (the `CollectCliLogin` operationId).
+func (c *Client) CollectCliLogin(ctx context.Context, body CollectCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCollectCliLoginRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetCliLogin Get Cli Login
+//
+// What the dashboard shows before a sign-in is approved: the machine that
+// asked, when, and whether the attempt is still open.
+//
+// Corresponds with GET /v1/cli/logins/{user_code} (the `GetCliLogin` operationId).
+func (c *Client) GetCliLogin(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCliLoginRequest(c.Server, userCode)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveCliLoginWithBody Approve Cli Login
+//
+// Approve a sign-in for one organisation, which needs the admin role
+// there, as creating a key does. It mints a key with the read and write
+// scopes, named after the machine.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/cli/logins/{user_code}/approve (the `ApproveCliLogin` operationId).
+func (c *Client) ApproveCliLoginWithBody(ctx context.Context, userCode string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveCliLoginRequestWithBody(c.Server, userCode, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveCliLogin Approve Cli Login
+//
+// Approve a sign-in for one organisation, which needs the admin role
+// there, as creating a key does. It mints a key with the read and write
+// scopes, named after the machine.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/cli/logins/{user_code}/approve (the `ApproveCliLogin` operationId).
+func (c *Client) ApproveCliLogin(ctx context.Context, userCode string, body ApproveCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveCliLoginRequest(c.Server, userCode, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DenyCliLogin Deny Cli Login
+//
+// Refuse a sign-in, so the CLI that asked stops waiting.
+//
+// Corresponds with POST /v1/cli/logins/{user_code}/deny (the `DenyCliLogin` operationId).
+func (c *Client) DenyCliLogin(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDenyCliLoginRequest(c.Server, userCode)
 	if err != nil {
 		return nil, err
 	}
@@ -18064,6 +18403,201 @@ func NewDiscardChangesetRequest(server string, changesetId openapi_types.UUID) (
 	}
 
 	operationPath := fmt.Sprintf("/v1/changesets/%s/discard", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartCliLoginRequest calls the generic StartCliLogin builder with application/json body
+func NewStartCliLoginRequest(server string, body StartCliLoginJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartCliLoginRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartCliLoginRequestWithBody constructs an http.Request for the StartCliLogin method, with any body, and a specified content type
+func NewStartCliLoginRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/cli/logins")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCollectCliLoginRequest calls the generic CollectCliLogin builder with application/json body
+func NewCollectCliLoginRequest(server string, body CollectCliLoginJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCollectCliLoginRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCollectCliLoginRequestWithBody constructs an http.Request for the CollectCliLogin method, with any body, and a specified content type
+func NewCollectCliLoginRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/cli/logins/token")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetCliLoginRequest constructs an http.Request for the GetCliLogin method
+func NewGetCliLoginRequest(server string, userCode string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "user_code", userCode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/cli/logins/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewApproveCliLoginRequest calls the generic ApproveCliLogin builder with application/json body
+func NewApproveCliLoginRequest(server string, userCode string, body ApproveCliLoginJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApproveCliLoginRequestWithBody(server, userCode, "application/json", bodyReader)
+}
+
+// NewApproveCliLoginRequestWithBody constructs an http.Request for the ApproveCliLogin method, with any body, and a specified content type
+func NewApproveCliLoginRequestWithBody(server string, userCode string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "user_code", userCode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/cli/logins/%s/approve", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDenyCliLoginRequest constructs an http.Request for the DenyCliLogin method
+func NewDenyCliLoginRequest(server string, userCode string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "user_code", userCode, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/cli/logins/%s/deny", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -27646,6 +28180,93 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/changesets/{changeset_id}/discard (the `DiscardChangeset` operationId).
 	DiscardChangesetWithResponse(ctx context.Context, changesetId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DiscardChangesetResponse, error)
 
+	// StartCliLoginWithBodyWithResponse Start Cli Login
+	//
+	// Start signing the CLI in. Needs no credentials. Show the person
+	// `user_code` and `verification_url`, then ask `POST /cli/logins/token`
+	// every `interval` seconds until it answers with the key.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/cli/logins (the `StartCliLogin` operationId).
+	StartCliLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartCliLoginResponse, error)
+
+	// StartCliLoginWithResponse Start Cli Login
+	//
+	// Start signing the CLI in. Needs no credentials. Show the person
+	// `user_code` and `verification_url`, then ask `POST /cli/logins/token`
+	// every `interval` seconds until it answers with the key.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/cli/logins (the `StartCliLogin` operationId).
+	StartCliLoginWithResponse(ctx context.Context, body StartCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*StartCliLoginResponse, error)
+
+	// CollectCliLoginWithBodyWithResponse Collect Cli Login
+	//
+	// Collect the key once the person has approved. Until then this answers
+	// 400 with the code `authorization_pending`, and the CLI asks again. It
+	// answers `access_denied` if they refused and `expired_token` once the
+	// attempt is over or the key has been collected.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/cli/logins/token (the `CollectCliLogin` operationId).
+	CollectCliLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CollectCliLoginResponse, error)
+
+	// CollectCliLoginWithResponse Collect Cli Login
+	//
+	// Collect the key once the person has approved. Until then this answers
+	// 400 with the code `authorization_pending`, and the CLI asks again. It
+	// answers `access_denied` if they refused and `expired_token` once the
+	// attempt is over or the key has been collected.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/cli/logins/token (the `CollectCliLogin` operationId).
+	CollectCliLoginWithResponse(ctx context.Context, body CollectCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*CollectCliLoginResponse, error)
+
+	// GetCliLoginWithResponse Get Cli Login
+	//
+	// What the dashboard shows before a sign-in is approved: the machine that
+	// asked, when, and whether the attempt is still open.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/cli/logins/{user_code} (the `GetCliLogin` operationId).
+	GetCliLoginWithResponse(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*GetCliLoginResponse, error)
+
+	// ApproveCliLoginWithBodyWithResponse Approve Cli Login
+	//
+	// Approve a sign-in for one organisation, which needs the admin role
+	// there, as creating a key does. It mints a key with the read and write
+	// scopes, named after the machine.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/cli/logins/{user_code}/approve (the `ApproveCliLogin` operationId).
+	ApproveCliLoginWithBodyWithResponse(ctx context.Context, userCode string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveCliLoginResponse, error)
+
+	// ApproveCliLoginWithResponse Approve Cli Login
+	//
+	// Approve a sign-in for one organisation, which needs the admin role
+	// there, as creating a key does. It mints a key with the read and write
+	// scopes, named after the machine.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/cli/logins/{user_code}/approve (the `ApproveCliLogin` operationId).
+	ApproveCliLoginWithResponse(ctx context.Context, userCode string, body ApproveCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveCliLoginResponse, error)
+
+	// DenyCliLoginWithResponse Deny Cli Login
+	//
+	// Refuse a sign-in, so the CLI that asked stops waiting.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/cli/logins/{user_code}/deny (the `DenyCliLogin` operationId).
+	DenyCliLoginWithResponse(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*DenyCliLoginResponse, error)
+
 	// TranslateComposeWithBodyWithResponse Translate Compose
 	//
 	// Translates a Docker Compose file into a dekka.yaml without an
@@ -32196,6 +32817,281 @@ func (r DiscardChangesetResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DiscardChangesetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartCliLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CliLoginStarted
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartCliLoginResponse) GetJSON201() *CliLoginStarted {
+	return r.JSON201
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r StartCliLoginResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r StartCliLoginResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r StartCliLoginResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartCliLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartCliLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartCliLoginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CollectCliLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CliLoginKey
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CollectCliLoginResponse) GetJSON200() *CliLoginKey {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r CollectCliLoginResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r CollectCliLoginResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r CollectCliLoginResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CollectCliLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CollectCliLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CollectCliLoginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetCliLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CliLoginOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCliLoginResponse) GetJSON200() *CliLoginOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r GetCliLoginResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r GetCliLoginResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r GetCliLoginResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCliLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCliLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCliLoginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApproveCliLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CliLoginOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveCliLoginResponse) GetJSON200() *CliLoginOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r ApproveCliLoginResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r ApproveCliLoginResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r ApproveCliLoginResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApproveCliLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApproveCliLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApproveCliLoginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DenyCliLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CliLoginOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DenyCliLoginResponse) GetJSON200() *CliLoginOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r DenyCliLoginResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r DenyCliLoginResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r DenyCliLoginResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DenyCliLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DenyCliLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DenyCliLoginResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -44183,6 +45079,141 @@ func (c *ClientWithResponses) DiscardChangesetWithResponse(ctx context.Context, 
 	return ParseDiscardChangesetResponse(rsp)
 }
 
+// StartCliLoginWithBodyWithResponse Start Cli Login
+//
+// Start signing the CLI in. Needs no credentials. Show the person
+// `user_code` and `verification_url`, then ask `POST /cli/logins/token`
+// every `interval` seconds until it answers with the key.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/cli/logins (the `StartCliLogin` operationId).
+func (c *ClientWithResponses) StartCliLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartCliLoginResponse, error) {
+	rsp, err := c.StartCliLoginWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartCliLoginResponse(rsp)
+}
+
+// StartCliLoginWithResponse Start Cli Login
+//
+// Start signing the CLI in. Needs no credentials. Show the person
+// `user_code` and `verification_url`, then ask `POST /cli/logins/token`
+// every `interval` seconds until it answers with the key.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/cli/logins (the `StartCliLogin` operationId).
+func (c *ClientWithResponses) StartCliLoginWithResponse(ctx context.Context, body StartCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*StartCliLoginResponse, error) {
+	rsp, err := c.StartCliLogin(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartCliLoginResponse(rsp)
+}
+
+// CollectCliLoginWithBodyWithResponse Collect Cli Login
+//
+// Collect the key once the person has approved. Until then this answers
+// 400 with the code `authorization_pending`, and the CLI asks again. It
+// answers `access_denied` if they refused and `expired_token` once the
+// attempt is over or the key has been collected.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/cli/logins/token (the `CollectCliLogin` operationId).
+func (c *ClientWithResponses) CollectCliLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CollectCliLoginResponse, error) {
+	rsp, err := c.CollectCliLoginWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCollectCliLoginResponse(rsp)
+}
+
+// CollectCliLoginWithResponse Collect Cli Login
+//
+// Collect the key once the person has approved. Until then this answers
+// 400 with the code `authorization_pending`, and the CLI asks again. It
+// answers `access_denied` if they refused and `expired_token` once the
+// attempt is over or the key has been collected.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/cli/logins/token (the `CollectCliLogin` operationId).
+func (c *ClientWithResponses) CollectCliLoginWithResponse(ctx context.Context, body CollectCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*CollectCliLoginResponse, error) {
+	rsp, err := c.CollectCliLogin(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCollectCliLoginResponse(rsp)
+}
+
+// GetCliLoginWithResponse Get Cli Login
+//
+// What the dashboard shows before a sign-in is approved: the machine that
+// asked, when, and whether the attempt is still open.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/cli/logins/{user_code} (the `GetCliLogin` operationId).
+func (c *ClientWithResponses) GetCliLoginWithResponse(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*GetCliLoginResponse, error) {
+	rsp, err := c.GetCliLogin(ctx, userCode, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCliLoginResponse(rsp)
+}
+
+// ApproveCliLoginWithBodyWithResponse Approve Cli Login
+//
+// Approve a sign-in for one organisation, which needs the admin role
+// there, as creating a key does. It mints a key with the read and write
+// scopes, named after the machine.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/cli/logins/{user_code}/approve (the `ApproveCliLogin` operationId).
+func (c *ClientWithResponses) ApproveCliLoginWithBodyWithResponse(ctx context.Context, userCode string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveCliLoginResponse, error) {
+	rsp, err := c.ApproveCliLoginWithBody(ctx, userCode, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveCliLoginResponse(rsp)
+}
+
+// ApproveCliLoginWithResponse Approve Cli Login
+//
+// Approve a sign-in for one organisation, which needs the admin role
+// there, as creating a key does. It mints a key with the read and write
+// scopes, named after the machine.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/cli/logins/{user_code}/approve (the `ApproveCliLogin` operationId).
+func (c *ClientWithResponses) ApproveCliLoginWithResponse(ctx context.Context, userCode string, body ApproveCliLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveCliLoginResponse, error) {
+	rsp, err := c.ApproveCliLogin(ctx, userCode, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveCliLoginResponse(rsp)
+}
+
+// DenyCliLoginWithResponse Deny Cli Login
+//
+// Refuse a sign-in, so the CLI that asked stops waiting.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/cli/logins/{user_code}/deny (the `DenyCliLogin` operationId).
+func (c *ClientWithResponses) DenyCliLoginWithResponse(ctx context.Context, userCode string, reqEditors ...RequestEditorFn) (*DenyCliLoginResponse, error) {
+	rsp, err := c.DenyCliLogin(ctx, userCode, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDenyCliLoginResponse(rsp)
+}
+
 // TranslateComposeWithBodyWithResponse Translate Compose
 //
 // Translates a Docker Compose file into a dekka.yaml without an
@@ -49815,6 +50846,206 @@ func ParseDiscardChangesetResponse(rsp *http.Response) (*DiscardChangesetRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ChangesetOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartCliLoginResponse parses an HTTP response from a StartCliLoginWithResponse call
+func ParseStartCliLoginResponse(rsp *http.Response) (*StartCliLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartCliLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CliLoginStarted
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCollectCliLoginResponse parses an HTTP response from a CollectCliLoginWithResponse call
+func ParseCollectCliLoginResponse(rsp *http.Response) (*CollectCliLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CollectCliLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CliLoginKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCliLoginResponse parses an HTTP response from a GetCliLoginWithResponse call
+func ParseGetCliLoginResponse(rsp *http.Response) (*GetCliLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCliLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CliLoginOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApproveCliLoginResponse parses an HTTP response from a ApproveCliLoginWithResponse call
+func ParseApproveCliLoginResponse(rsp *http.Response) (*ApproveCliLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApproveCliLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CliLoginOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDenyCliLoginResponse parses an HTTP response from a DenyCliLoginWithResponse call
+func ParseDenyCliLoginResponse(rsp *http.Response) (*DenyCliLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DenyCliLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CliLoginOut
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

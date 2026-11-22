@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs the latest dekka release for this machine.
 #
-#   curl -fsSL https://raw.githubusercontent.com/dekka-cloud/dekka-cli/main/install.sh | sh
+#   curl -fsSL https://dekka.cloud/install.sh | sh
 #
 # DEKKA_VERSION picks a release tag such as v0.1.0, and DEKKA_INSTALL_DIR
 # picks where the binary goes. The archive is checked against the release's
