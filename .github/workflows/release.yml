@@ -3,6 +3,13 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Publishes the npm package for a release that already exists, for when
+  # that step failed or the release was made before npm was set up.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release to publish to npm, such as v0.1.1
+        required: true
 
 permissions:
   contents: write
@@ -10,9 +17,8 @@ permissions:
 
 jobs:
   release:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -29,9 +35,25 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # The npm package fetches this release's archive and checks it against
-      # checksums.txt, so the list is published inside the package. The step
-      # is skipped until the NPM_TOKEN secret exists.
+
+  # The npm package fetches the release's archive and checks it against
+  # checksums.txt, so the release's own list is published inside the package.
+  # The job does nothing until the NPM_TOKEN secret exists, and it can be run
+  # again by itself.
+  npm:
+    needs: release
+    if: ${{ !cancelled() && (needs.release.result == 'success' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: env.NPM_TOKEN != ''
         with:
@@ -42,9 +64,14 @@ jobs:
         working-directory: npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          cp ../dist/checksums.txt ../LICENSE .
+          case "$TAG" in
+          v[0-9]*) version="${TAG#v}" ;;
+          *) echo "$TAG is not a release tag" >&2; exit 1 ;;
+          esac
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt
+          cp ../LICENSE .
           npm version --no-git-tag-version "$version"
           # A pre-release must not become what npx dekka installs.
           case "$version" in
