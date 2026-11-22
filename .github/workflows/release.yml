@@ -38,8 +38,9 @@ jobs:
 
   # The npm package fetches the release's archive and checks it against
   # checksums.txt, so the release's own list is published inside the package.
-  # The job does nothing until the NPM_TOKEN secret exists, and it can be run
-  # again by itself.
+  # npm trusts this workflow in this repository to publish dekka, so the job
+  # holds no token: the id-token permission is what signs it in. It must run
+  # on a GitHub-hosted machine, and it can be run again by itself.
   npm:
     needs: release
     if: ${{ !cancelled() && (needs.release.result == 'success' || github.event_name == 'workflow_dispatch') }}
@@ -48,33 +49,31 @@ jobs:
       contents: read
       id-token: write
     env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: env.NPM_TOKEN != ''
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
       - name: Publish the npm package
-        if: env.NPM_TOKEN != ''
         working-directory: npm
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GH_TOKEN: ${{ github.token }}
         run: |
           case "$TAG" in
           v[0-9]*) version="${TAG#v}" ;;
           *) echo "$TAG is not a release tag" >&2; exit 1 ;;
           esac
+          # Trusted publishing needs npm 11.5.1 or later.
+          npm --version
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt
           cp ../LICENSE .
           npm version --no-git-tag-version "$version"
           # A pre-release must not become what npx dekka installs.
           case "$version" in
-          *-*) npm publish --provenance --access public --tag next ;;
-          *) npm publish --provenance --access public ;;
+          *-*) npm publish --access public --tag next ;;
+          *) npm publish --access public ;;
           esac
