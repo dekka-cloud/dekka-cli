@@ -10,9 +10,9 @@ On macOS and Linux the install script downloads the latest release, checks it ag
 curl -fsSL https://dekka.cloud/install.sh | sh
 ```
 
-Set `DEKKA_VERSION` to install a particular release, such as `v0.1.0`, and `DEKKA_INSTALL_DIR` to choose the directory. The [releases page](https://github.com/dekka-cloud/dekka-cli/releases) has archives for macOS, Linux and Windows on amd64 and arm64, each with an SBOM, and a checksums file signed with Sigstore.
+Set `DEKKA_VERSION` to install a particular release, such as `v0.1.0`, and `DEKKA_INSTALL_DIR` to choose the directory. The [releases page](https://github.com/dekka-cloud/dekka-cli/releases) has archives for macOS, Linux and Windows on amd64 and arm64, each with an SBOM, and a checksums file signed with Sigstore, whose signature is `checksums.txt.sigstore.json`.
 
-No release has been tagged yet, so until the first one is, build the CLI with Go instead.
+With Go installed, you can build it from source instead.
 
 ```sh
 go install github.com/dekka-cloud/dekka-cli/cmd/dekka@latest
