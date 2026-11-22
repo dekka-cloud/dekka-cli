@@ -72,8 +72,10 @@ jobs:
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt
           cp ../LICENSE .
           npm version --no-git-tag-version "$version"
+          # The log says how npm signed the workflow in, which is the first
+          # thing to read when a publish is refused.
           # A pre-release must not become what npx dekka installs.
           case "$version" in
-          *-*) npm publish --access public --tag next ;;
-          *) npm publish --access public ;;
+          *-*) npm publish --access public --tag next --loglevel verbose ;;
+          *) npm publish --access public --loglevel verbose ;;
           esac
