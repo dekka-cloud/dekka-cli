@@ -551,6 +551,7 @@ func (e CreateProjectTokenRequestScopes) Valid() bool {
 const (
 	CreateServerRequestRuntimeProfileFirecrackerLinuxV1  CreateServerRequestRuntimeProfile = "firecracker-linux-v1"
 	CreateServerRequestRuntimeProfileGvisorSystemLinuxV1 CreateServerRequestRuntimeProfile = "gvisor-system-linux-v1"
+	CreateServerRequestRuntimeProfileKvmLinuxV1          CreateServerRequestRuntimeProfile = "kvm-linux-v1"
 )
 
 // Valid indicates whether the value is a known member of the CreateServerRequestRuntimeProfile enum.
@@ -559,6 +560,8 @@ func (e CreateServerRequestRuntimeProfile) Valid() bool {
 	case CreateServerRequestRuntimeProfileFirecrackerLinuxV1:
 		return true
 	case CreateServerRequestRuntimeProfileGvisorSystemLinuxV1:
+		return true
+	case CreateServerRequestRuntimeProfileKvmLinuxV1:
 		return true
 	default:
 		return false
@@ -871,6 +874,45 @@ func (e EstimateLineOutAction) Valid() bool {
 	case EstimateLineOutActionDelete:
 		return true
 	case EstimateLineOutActionUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FirewallRuleAction.
+const (
+	Allow FirewallRuleAction = "allow"
+	Deny  FirewallRuleAction = "deny"
+)
+
+// Valid indicates whether the value is a known member of the FirewallRuleAction enum.
+func (e FirewallRuleAction) Valid() bool {
+	switch e {
+	case Allow:
+		return true
+	case Deny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FirewallRuleProtocol.
+const (
+	Icmp FirewallRuleProtocol = "icmp"
+	Tcp  FirewallRuleProtocol = "tcp"
+	Udp  FirewallRuleProtocol = "udp"
+)
+
+// Valid indicates whether the value is a known member of the FirewallRuleProtocol enum.
+func (e FirewallRuleProtocol) Valid() bool {
+	switch e {
+	case Icmp:
+		return true
+	case Tcp:
+		return true
+	case Udp:
 		return true
 	default:
 		return false
@@ -2147,6 +2189,7 @@ func (e TicketStatus) Valid() bool {
 const (
 	VirtualMachineSpecRuntimeProfileFirecrackerLinuxV1  VirtualMachineSpecRuntimeProfile = "firecracker-linux-v1"
 	VirtualMachineSpecRuntimeProfileGvisorSystemLinuxV1 VirtualMachineSpecRuntimeProfile = "gvisor-system-linux-v1"
+	VirtualMachineSpecRuntimeProfileKvmLinuxV1          VirtualMachineSpecRuntimeProfile = "kvm-linux-v1"
 )
 
 // Valid indicates whether the value is a known member of the VirtualMachineSpecRuntimeProfile enum.
@@ -2155,6 +2198,8 @@ func (e VirtualMachineSpecRuntimeProfile) Valid() bool {
 	case VirtualMachineSpecRuntimeProfileFirecrackerLinuxV1:
 		return true
 	case VirtualMachineSpecRuntimeProfileGvisorSystemLinuxV1:
+		return true
+	case VirtualMachineSpecRuntimeProfileKvmLinuxV1:
 		return true
 	default:
 		return false
@@ -2355,6 +2400,12 @@ type AcceptInvitationOut struct {
 // AcceptInvitationRequest defines model for AcceptInvitationRequest.
 type AcceptInvitationRequest struct {
 	Token string `json:"token"`
+}
+
+// AcceptTermsRequest defines model for AcceptTermsRequest.
+type AcceptTermsRequest struct {
+	// Version The version the person was shown
+	Version string `json:"version"`
 }
 
 // Accepted defines model for Accepted.
@@ -2679,8 +2730,9 @@ type BillingDetailsOut struct {
 
 // Binding defines model for Binding.
 type Binding struct {
-	Key    string `json:"key"`
-	Secret bool   `json:"secret"`
+	Key      string `json:"key"`
+	Optional *bool  `json:"optional,omitempty"`
+	Secret   bool   `json:"secret"`
 }
 
 // BlueprintConnectionOut defines model for BlueprintConnectionOut.
@@ -3051,6 +3103,18 @@ type ComposeTranslation struct {
 	Resources []ComposeResourceOut `json:"resources"`
 }
 
+// ConfigServicesOut defines model for ConfigServicesOut.
+type ConfigServicesOut struct {
+	CommitSha *string `json:"commit_sha"`
+
+	// File dekka.toml or dekka.json, or null when the commit has neither
+	File *string `json:"file"`
+
+	// PlanNeeded Whether something declared is missing or not connected
+	PlanNeeded bool                 `json:"plan_needed"`
+	Services   []DeclaredServiceOut `json:"services"`
+}
+
 // ConnectionOut defines model for ConnectionOut.
 type ConnectionOut struct {
 	ActiveOperation *ActiveOperation   `json:"active_operation"`
@@ -3227,7 +3291,10 @@ type CreateServerRequest struct {
 
 	// RuntimeProfile The runtime profile the server runs under, fixed after creation. The size and image must belong to it.
 	RuntimeProfile *CreateServerRequestRuntimeProfile `json:"runtime_profile,omitempty"`
-	SizeId         string                             `json:"size_id"`
+
+	// Shell Whether the server opens as a terminal from its page, signed in as root. Only a kvm-linux-v1 server has one, and it can be switched on and off afterwards.
+	Shell  *bool  `json:"shell,omitempty"`
+	SizeId string `json:"size_id"`
 
 	// SshKeyIds Installed for root
 	SshKeyIds []openapi_types.UUID `json:"ssh_key_ids"`
@@ -3238,6 +3305,12 @@ type CreateServerRequest struct {
 
 // CreateServerRequestRuntimeProfile The runtime profile the server runs under, fixed after creation. The size and image must belong to it.
 type CreateServerRequestRuntimeProfile string
+
+// CreateSnapshotRequest defines model for CreateSnapshotRequest.
+type CreateSnapshotRequest struct {
+	// Name One line, without quotes, backslashes or dollar signs
+	Name string `json:"name"`
+}
 
 // CreateSshKeyRequest defines model for CreateSshKeyRequest.
 type CreateSshKeyRequest struct {
@@ -3327,6 +3400,15 @@ type DayMetrics struct {
 	InputTokens  *int `json:"input_tokens,omitempty"`
 	OutputTokens *int `json:"output_tokens,omitempty"`
 	Requests     *int `json:"requests,omitempty"`
+}
+
+// DeclaredServiceOut A database, cache, bucket or queue a service's dekka.toml declares.
+type DeclaredServiceOut struct {
+	Connected bool    `json:"connected"`
+	Exists    bool    `json:"exists"`
+	Kind      string  `json:"kind"`
+	Name      string  `json:"name"`
+	Tier      *string `json:"tier,omitempty"`
 }
 
 // DeliveryOut defines model for DeliveryOut.
@@ -3449,6 +3531,21 @@ type DeploymentSummary struct {
 
 // DeploymentTrigger defines model for DeploymentTrigger.
 type DeploymentTrigger string
+
+// Detection What the branch looks like and the settings Dekka would start from.
+type Detection struct {
+	BuildCommand     *string   `json:"build_command,omitempty"`
+	ComposeFile      *string   `json:"compose_file,omitempty"`
+	ConfigFile       *string   `json:"config_file,omitempty"`
+	DockerfilePath   *string   `json:"dockerfile_path,omitempty"`
+	Found            *[]string `json:"found,omitempty"`
+	Framework        *string   `json:"framework,omitempty"`
+	HealthCheckPath  *string   `json:"health_check_path,omitempty"`
+	Port             *int      `json:"port,omitempty"`
+	StartCommand     *string   `json:"start_command,omitempty"`
+	StaticPublishDir *string   `json:"static_publish_dir,omitempty"`
+	Strategy         *string   `json:"strategy,omitempty"`
+}
 
 // DnsRecordOut defines model for DnsRecordOut.
 type DnsRecordOut struct {
@@ -3732,6 +3829,43 @@ type Features struct {
 	GpuWaitlist *bool `json:"gpu_waitlist,omitempty"`
 	Vps         *bool `json:"vps,omitempty"`
 }
+
+// FirewallOut defines model for FirewallOut.
+type FirewallOut struct {
+	// HasNetwork False until the environment has its first KVM server, which is when it gets a private network
+	HasNetwork bool `json:"has_network"`
+
+	// Range The private network's range, such as 10.64.0.0/16
+	Range    *string        `json:"range"`
+	Revision int            `json:"revision"`
+	Rules    []FirewallRule `json:"rules"`
+}
+
+// FirewallRule One inbound rule on an environment's private network. The rule with the
+// lowest priority that matches a new connection decides it, and a connection
+// that no rule matches is dropped.
+type FirewallRule struct {
+	Action FirewallRuleAction `json:"action"`
+
+	// Ports One port or a range such as 8000-8100, for tcp and udp
+	Ports    *string `json:"ports,omitempty"`
+	Priority int     `json:"priority"`
+
+	// Protocol Leave it out for every protocol
+	Protocol *FirewallRuleProtocol `json:"protocol,omitempty"`
+
+	// Source `vpc` for the network's own servers, `any`, or an IPv4 prefix such as 203.0.113.0/24
+	Source string `json:"source"`
+
+	// Target An IPv4 prefix inside the network, such as one server's private address with /32. Leave it out for every server
+	Target *string `json:"target,omitempty"`
+}
+
+// FirewallRuleAction defines model for FirewallRule.Action.
+type FirewallRuleAction string
+
+// FirewallRuleProtocol defines model for FirewallRule.Protocol.
+type FirewallRuleProtocol string
 
 // GitHubSource defines model for GitHubSource.
 type GitHubSource struct {
@@ -4119,6 +4253,7 @@ type MeResponse struct {
 	HasPasskey    bool                      `json:"has_passkey"`
 	Organizations []MeOrganization          `json:"organizations"`
 	SignInMethods []MeResponseSignInMethods `json:"sign_in_methods"`
+	Terms         TermsStatus               `json:"terms"`
 	User          UserOut                   `json:"user"`
 }
 
@@ -4906,6 +5041,11 @@ type RegistryCredentialOut struct {
 	Username  string    `json:"username"`
 }
 
+// ReplaceFirewallRequest defines model for ReplaceFirewallRequest.
+type ReplaceFirewallRequest struct {
+	Rules []FirewallRule `json:"rules"`
+}
+
 // RepoOut defines model for RepoOut.
 type RepoOut struct {
 	DefaultBranch string  `json:"default_branch"`
@@ -5034,6 +5174,12 @@ type RevealedEnvVar struct {
 	Value string `json:"value"`
 }
 
+// RevertSnapshotRequest defines model for RevertSnapshotRequest.
+type RevertSnapshotRequest struct {
+	// Confirm The server's name, since what was written after the snapshot is lost
+	Confirm string `json:"confirm"`
+}
+
 // Role defines model for Role.
 type Role string
 
@@ -5041,6 +5187,12 @@ type Role string
 type RollbackRequest struct {
 	// KeepCurrentVariables Run the earlier image with the service's variables as they are now, instead of the variables that deployment ran with
 	KeepCurrentVariables *bool `json:"keep_current_variables,omitempty"`
+}
+
+// RootPasswordRequest defines model for RootPasswordRequest.
+type RootPasswordRequest struct {
+	// Password Root's new password. It is hashed before it leaves the API and is never stored.
+	Password string `json:"password"`
 }
 
 // RotateOut defines model for RotateOut.
@@ -5095,7 +5247,7 @@ type RoutingPolicyOut struct {
 type RuntimeProfileOut struct {
 	Id string `json:"id"`
 
-	// Isolation firecracker-kvm or gvisor-systrap
+	// Isolation firecracker-kvm, gvisor-systrap or kvm
 	Isolation            string `json:"isolation"`
 	NestedVirtualization bool   `json:"nested_virtualization"`
 
@@ -5167,21 +5319,33 @@ type ServerOut struct {
 	Ipv4    *string            `json:"ipv4"`
 	Ipv6    *string            `json:"ipv6"`
 
-	// Isolation firecracker-kvm or gvisor-systrap
+	// Isolation firecracker-kvm, gvisor-systrap or kvm
 	Isolation string `json:"isolation"`
 	Name      string `json:"name"`
 
 	// PendingSizeId The size a resize in progress is moving to
-	PendingSizeId *string            `json:"pending_size_id"`
-	ProjectId     openapi_types.UUID `json:"project_id"`
-	RegionId      string             `json:"region_id"`
+	PendingSizeId *string `json:"pending_size_id"`
+
+	// PrivateIpv4 The server's address on its environment's private network, when it has one
+	PrivateIpv4 *string            `json:"private_ipv4,omitempty"`
+	ProjectId   openapi_types.UUID `json:"project_id"`
+	RegionId    string             `json:"region_id"`
 
 	// RuntimeProfile Fixed when the server was created
-	RuntimeProfile     string      `json:"runtime_profile"`
+	RuntimeProfile string `json:"runtime_profile"`
+
+	// Shell Whether the server's shell is switched on
+	Shell              bool        `json:"shell"`
 	SizeId             string      `json:"size_id"`
 	SshKeyFingerprints []string    `json:"ssh_key_fingerprints"`
 	State              ServerState `json:"state"`
 	StatusReason       *string     `json:"status_reason"`
+}
+
+// ServerShellOut defines model for ServerShellOut.
+type ServerShellOut struct {
+	// Command What to run once as root on a server that was made without the shell, or that had it switched off and on again. A server made with the shell on needs nothing.
+	Command string `json:"command"`
 }
 
 // ServerSizeOut defines model for ServerSizeOut.
@@ -5202,7 +5366,10 @@ type ServerSizeOut struct {
 	MonthlyPrice string `json:"monthly_price"`
 
 	// Name The tier word, such as Forge
-	Name           string `json:"name"`
+	Name string `json:"name"`
+
+	// Offered Whether the size is still sold. One that is not stays in the catalogue because servers have it, and it can no longer be chosen for a new server or a resize.
+	Offered        bool   `json:"offered"`
 	RuntimeProfile string `json:"runtime_profile"`
 
 	// Tier Null for a size from before tiers existed
@@ -5347,6 +5514,42 @@ type SimulatePushRequest struct {
 	RepoId         *int    `json:"repo_id,omitempty"`
 }
 
+// SnapshotOut defines model for SnapshotOut.
+type SnapshotOut struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Current True for the snapshot the disk was last taken from or put back to
+	Current bool   `json:"current"`
+	Id      int    `json:"id"`
+	Name    string `json:"name"`
+
+	// Nightly True for one the nightly schedule took
+	Nightly bool `json:"nightly"`
+
+	// SizeMib The size of the disk it holds
+	SizeMib int `json:"size_mib"`
+}
+
+// SnapshotScheduleRequest defines model for SnapshotScheduleRequest.
+type SnapshotScheduleRequest struct {
+	Keep    *int `json:"keep,omitempty"`
+	Nightly bool `json:"nightly"`
+}
+
+// SnapshotsOut A server's disk snapshots, oldest first. A snapshot is kept on the same
+// host as the disk, so it undoes a change and is not a backup.
+type SnapshotsOut struct {
+	// Busy True while a snapshot is being taken, deleted or put back
+	Busy bool `json:"busy"`
+
+	// Keep How many nightly snapshots are kept
+	Keep int `json:"keep"`
+
+	// Nightly Whether a snapshot is taken each night
+	Nightly   bool          `json:"nightly"`
+	Snapshots []SnapshotOut `json:"snapshots"`
+}
+
 // SpeechIn OpenAI's text-to-speech request. The reply is the audio itself.
 type SpeechIn struct {
 	Input          string                  `json:"input"`
@@ -5400,6 +5603,9 @@ type SshKeyOut struct {
 	Id          openapi_types.UUID `json:"id"`
 	KeyType     string             `json:"key_type"`
 	Name        string             `json:"name"`
+
+	// PublicKey The key on one line, as it goes into authorized_keys
+	PublicKey string `json:"public_key"`
 }
 
 // StageChangeRequest One change to stage. Which fields apply depends on target and action:
@@ -5484,11 +5690,17 @@ type SubdomainAvailabilityOutReason string
 // SubscriptionOut defines model for SubscriptionOut.
 type SubscriptionOut struct {
 	// BillingEnabled False in production when no payment provider is configured
-	BillingEnabled     bool       `json:"billing_enabled"`
-	CancelAtPeriodEnd  bool       `json:"cancel_at_period_end"`
-	CurrentPeriodEnd   time.Time  `json:"current_period_end"`
-	CurrentPeriodStart time.Time  `json:"current_period_start"`
-	PastDueSince       *time.Time `json:"past_due_since"`
+	BillingEnabled bool `json:"billing_enabled"`
+
+	// BillingExempt True when Dekka has set this plan for testing, so nothing is invoiced or charged
+	BillingExempt      *bool     `json:"billing_exempt,omitempty"`
+	CancelAtPeriodEnd  bool      `json:"cancel_at_period_end"`
+	CurrentPeriodEnd   time.Time `json:"current_period_end"`
+	CurrentPeriodStart time.Time `json:"current_period_start"`
+
+	// LimitsWaived True when Dekka has lifted this plan's limits for testing
+	LimitsWaived *bool      `json:"limits_waived,omitempty"`
+	PastDueSince *time.Time `json:"past_due_since"`
 
 	// PendingPlan The plan that takes over when the period ends, after a downgrade
 	PendingPlan *PlanOut `json:"pending_plan"`
@@ -5601,6 +5813,18 @@ type TemplateSummary struct {
 	Metadata  *TemplateMetadataOut  `json:"metadata,omitempty"`
 	Name      string                `json:"name"`
 	Resources []TemplateResourceOut `json:"resources"`
+}
+
+// TermsStatus defines model for TermsStatus.
+type TermsStatus struct {
+	// AcceptedAt When this account accepted that version, or null
+	AcceptedAt *time.Time `json:"accepted_at"`
+
+	// Enforced Whether an account that has not accepted is refused anything that changes state
+	Enforced bool `json:"enforced"`
+
+	// Version The current terms, named by the day they last changed
+	Version string `json:"version"`
 }
 
 // TicketIn defines model for TicketIn.
@@ -5732,8 +5956,11 @@ type VirtualMachineSpec struct {
 	// ImageId An image from GET /v1/catalog/servers
 	ImageId string `json:"image_id"`
 
-	// RuntimeProfile firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization. The size and image must belong to it, and it is fixed after creation.
+	// RuntimeProfile firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization; kvm-linux-v1 runs it as a full KVM virtual machine on its environment's private network. The size and image must belong to it, and it is fixed after creation.
 	RuntimeProfile *VirtualMachineSpecRuntimeProfile `json:"runtime_profile,omitempty"`
+
+	// Shell Whether the server opens as a terminal from its page, signed in as root. Only a kvm-linux-v1 server has one, and it can be switched on and off afterwards.
+	Shell *bool `json:"shell,omitempty"`
 
 	// SizeId A size from GET /v1/catalog/servers
 	SizeId string `json:"size_id"`
@@ -5745,7 +5972,7 @@ type VirtualMachineSpec struct {
 	UserData *string `json:"user_data,omitempty"`
 }
 
-// VirtualMachineSpecRuntimeProfile firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization. The size and image must belong to it, and it is fixed after creation.
+// VirtualMachineSpecRuntimeProfile firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization; kvm-linux-v1 runs it as a full KVM virtual machine on its environment's private network. The size and image must belong to it, and it is fixed after creation.
 type VirtualMachineSpecRuntimeProfile string
 
 // VolumeStatus defines model for VolumeStatus.
@@ -5977,6 +6204,12 @@ type PlanTemplateJSONBody = PlanTemplateRequest
 // EstimateJSONBody defines parameters for Estimate.
 type EstimateJSONBody struct {
 	union json.RawMessage
+}
+
+// DetectGithubSettingsParams defines parameters for DetectGithubSettings.
+type DetectGithubSettingsParams struct {
+	Branch  string  `form:"branch" json:"branch"`
+	RootDir *string `form:"root_dir,omitempty" json:"root_dir,omitempty"`
 }
 
 // GithubSetupCallbackParams defines parameters for GithubSetupCallback.
@@ -6225,6 +6458,9 @@ type PlanComposeJSONRequestBody = ComposePlanRequest
 // ReadComposeJSONRequestBody defines body for ReadCompose for application/json ContentType.
 type ReadComposeJSONRequestBody = ComposeReadRequest
 
+// ReplaceEnvironmentFirewallJSONRequestBody defines body for ReplaceEnvironmentFirewall for application/json ContentType.
+type ReplaceEnvironmentFirewallJSONRequestBody = ReplaceFirewallRequest
+
 // PlanTemplateJSONRequestBody defines body for PlanTemplate for application/json ContentType.
 type PlanTemplateJSONRequestBody = PlanTemplateJSONBody
 
@@ -6251,6 +6487,9 @@ type PutNotificationPreferencesJSONRequestBody = NotificationPreferences
 
 // RegisterPasskeyJSONRequestBody defines body for RegisterPasskey for application/json ContentType.
 type RegisterPasskeyJSONRequestBody = PasskeyRegistration
+
+// AcceptTermsJSONRequestBody defines body for AcceptTerms for application/json ContentType.
+type AcceptTermsJSONRequestBody = AcceptTermsRequest
 
 // UpdateOrgJSONRequestBody defines body for UpdateOrg for application/json ContentType.
 type UpdateOrgJSONRequestBody = UpdateOrgRequest
@@ -6356,6 +6595,18 @@ type RebuildServerJSONRequestBody = RebuildServerRequest
 
 // ResizeServerJSONRequestBody defines body for ResizeServer for application/json ContentType.
 type ResizeServerJSONRequestBody = ResizeServerRequest
+
+// SetServerRootPasswordJSONRequestBody defines body for SetServerRootPassword for application/json ContentType.
+type SetServerRootPasswordJSONRequestBody = RootPasswordRequest
+
+// CreateServerSnapshotJSONRequestBody defines body for CreateServerSnapshot for application/json ContentType.
+type CreateServerSnapshotJSONRequestBody = CreateSnapshotRequest
+
+// SetServerSnapshotScheduleJSONRequestBody defines body for SetServerSnapshotSchedule for application/json ContentType.
+type SetServerSnapshotScheduleJSONRequestBody = SnapshotScheduleRequest
+
+// RevertServerSnapshotJSONRequestBody defines body for RevertServerSnapshot for application/json ContentType.
+type RevertServerSnapshotJSONRequestBody = RevertSnapshotRequest
 
 // OpenSupportTicketJSONRequestBody defines body for OpenSupportTicket for application/json ContentType.
 type OpenSupportTicketJSONRequestBody = TicketIn
@@ -7747,8 +7998,8 @@ type ClientInterface interface {
 
 	// GetCsrfToken Get Csrf Token
 	//
-	// Returns the CSRF token and sets the `dekka_csrf` cookie if needed. Send
-	// the token as `X-CSRF-Token` on every mutating request.
+	// Returns the CSRF token and sets the CSRF cookie if needed (`__Host-dekka_csrf`
+	// in production). Send the token as `X-CSRF-Token` on every mutating request.
 	//
 	// Corresponds with GET /v1/auth/csrf (the `GetCsrfToken` operationId).
 	GetCsrfToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7909,10 +8160,11 @@ type ClientInterface interface {
 	// RestoreBackupWithBody Restore Backup
 	//
 	// Restores a completed backup over the current data (backup.restore).
-	// `confirm` must be the database's name, or the volume's service's name;
-	// otherwise it answers 422 confirmation_required. For a database,
-	// `target_time` restores to that moment instead of to the backup as taken.
-	// Returns the operation.
+	// `confirm` must be the database's or the cache's name, or the volume's
+	// service's name; otherwise it answers 422 confirmation_required. A cache
+	// or a volume's service is stopped while its backup is put back. For a
+	// Postgres database, `target_time` restores to that moment instead of to
+	// the backup as taken. Returns the operation.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -7922,10 +8174,11 @@ type ClientInterface interface {
 	// RestoreBackup Restore Backup
 	//
 	// Restores a completed backup over the current data (backup.restore).
-	// `confirm` must be the database's name, or the volume's service's name;
-	// otherwise it answers 422 confirmation_required. For a database,
-	// `target_time` restores to that moment instead of to the backup as taken.
-	// Returns the operation.
+	// `confirm` must be the database's or the cache's name, or the volume's
+	// service's name; otherwise it answers 422 confirmation_required. A cache
+	// or a volume's service is stopped while its backup is put back. For a
+	// Postgres database, `target_time` restores to that moment instead of to
+	// the backup as taken. Returns the operation.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -8447,6 +8700,36 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/environments/{environment_id}/compose/read (the `ReadCompose` operationId).
 	ReadCompose(ctx context.Context, environmentId openapi_types.UUID, body ReadComposeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetEnvironmentFirewall Get Environment Firewall
+	//
+	// The inbound rules on the environment's private network, which its KVM
+	// servers share. An environment gets the network with its first such server.
+	//
+	// Corresponds with GET /v1/environments/{environment_id}/firewall (the `GetEnvironmentFirewall` operationId).
+	GetEnvironmentFirewall(ctx context.Context, environmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceEnvironmentFirewallWithBody Replace Environment Firewall
+	//
+	// Replaces every rule at once. The host takes the new rules within
+	// seconds. They judge new connections, and a connection that is already
+	// open is not cut.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/environments/{environment_id}/firewall (the `ReplaceEnvironmentFirewall` operationId).
+	ReplaceEnvironmentFirewallWithBody(ctx context.Context, environmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplaceEnvironmentFirewall Replace Environment Firewall
+	//
+	// Replaces every rule at once. The host takes the new rules within
+	// seconds. They judge new connections, and a connection that is already
+	// open is not cut.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/environments/{environment_id}/firewall (the `ReplaceEnvironmentFirewall` operationId).
+	ReplaceEnvironmentFirewall(ctx context.Context, environmentId openapi_types.UUID, body ReplaceEnvironmentFirewallJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PlanTemplateWithBody Plan Template
 	//
 	// Plans a template into the environment as a changeset (source template)
@@ -8574,6 +8857,15 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/github/installations/{installation_id}/repos/{repo_id}/branches (the `ListGithubBranches` operationId).
 	ListGithubBranches(ctx context.Context, installationId int, repoId int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DetectGithubSettings Detect Github Settings
+	//
+	// How Dekka would build and run this branch, from the files at its root: the
+	// framework, build strategy, port, start command and health path, plus any
+	// Compose file or dekka.toml found. Nothing is run; the files are only read.
+	//
+	// Corresponds with GET /v1/github/installations/{installation_id}/repos/{repo_id}/detect (the `DetectGithubSettings` operationId).
+	DetectGithubSettings(ctx context.Context, installationId int, repoId int, params *DetectGithubSettingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GithubSetupCallback Github Setup Callback
 	//
@@ -8776,6 +9068,24 @@ type ClientInterface interface {
 	//
 	// Corresponds with DELETE /v1/me/sessions/{session_id} (the `RevokeMySession` operationId).
 	RevokeMySession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptTermsWithBody Accept Terms
+	//
+	// Accept the current terms of use. A person does this in the dashboard, so an API key can't.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/me/terms (the `AcceptTerms` operationId).
+	AcceptTermsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptTerms Accept Terms
+	//
+	// Accept the current terms of use. A person does this in the dashboard, so an API key can't.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/me/terms (the `AcceptTerms` operationId).
+	AcceptTerms(ctx context.Context, body AcceptTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOperation Get Operation
 	//
@@ -9666,19 +9976,40 @@ type ClientInterface interface {
 
 	// ListDatabaseBackups List Database Backups
 	//
-	// A Postgres database's backups, newest first: the ones taken on request
-	// and the ones its daily schedule takes, read from the engine. Each says
-	// where it is kept.
+	// A Postgres database's or a Redis cache's backups, newest first: the
+	// ones taken on request and the ones taken every night, read from the
+	// engine. Each says where it is kept.
 	//
 	// Corresponds with GET /v1/resources/{resource_id}/backups (the `ListDatabaseBackups` operationId).
 	ListDatabaseBackups(ctx context.Context, resourceId openapi_types.UUID, params *ListDatabaseBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateDatabaseBackup Create Database Backup
 	//
-	// Takes a manual backup now (backup.create). It is kept for 30 days.
+	// Takes a manual backup of a database or a cache now (backup.create). It
+	// is kept for 30 days.
 	//
 	// Corresponds with POST /v1/resources/{resource_id}/backups (the `CreateDatabaseBackup` operationId).
 	CreateDatabaseBackup(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PlanDeclaredServices Plan Declared Services
+	//
+	// Plans what the service's dekka.toml declares and the environment lacks:
+	// the missing databases, caches, buckets and queues, and a connection from
+	// the service to each declared one. Nothing changes until the changeset is
+	// deployed with POST /v1/changesets/{id}/deploy. Answers 409 nothing_to_plan
+	// when everything is already here and connected.
+	//
+	// Corresponds with POST /v1/resources/{resource_id}/config/plan (the `PlanDeclaredServices` operationId).
+	PlanDeclaredServices(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeclaredServices Declared Services
+	//
+	// The databases, caches, buckets and queues the service's dekka.toml (or
+	// dekka.json) declares under [services.<name>], read at its latest deployed
+	// commit, and whether each exists in the environment and is connected.
+	//
+	// Corresponds with GET /v1/resources/{resource_id}/config/services (the `DeclaredServices` operationId).
+	DeclaredServices(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListConnectionStrings List Connection Strings
 	//
@@ -9913,11 +10244,11 @@ type ClientInterface interface {
 
 	// RotateDatabaseCredentials Rotate Database Credentials
 	//
-	// Issues new credentials for every active connection to this database.
-	// Each connection goes active, pending, active: the engine rotates
-	// (connection.configure with rotate: true), Dekka rebinds the app's
-	// variable and restarts it. With no active connection it answers 409
-	// no_connections.
+	// Issues new credentials for every active connection to this database,
+	// cache, bucket or queue. Each connection goes active, pending, active: the
+	// engine rotates (connection.configure with rotate: true) and revokes the old
+	// credential, and Dekka rebinds the app's variables and restarts it. With no
+	// active connection it answers 409 no_connections.
 	//
 	// Corresponds with POST /v1/resources/{resource_id}/rotate-credentials (the `RotateDatabaseCredentials` operationId).
 	RotateDatabaseCredentials(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -10026,6 +10357,131 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/servers/{server_id}/resize (the `ResizeServer` operationId).
 	ResizeServer(ctx context.Context, serverId openapi_types.UUID, body ResizeServerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetServerRootPasswordWithBody Set Server Root Password
+	//
+	// Sets root's password on a KVM server. It takes effect the next time the
+	// server is started after being stopped, and is asked for on the server's
+	// console and nowhere else, since SSH takes keys only. The password is
+	// hashed here and is never stored or logged. Like the console it opens,
+	// this takes a signed-in person and not an API key.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/root-password (the `SetServerRootPassword` operationId).
+	SetServerRootPasswordWithBody(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetServerRootPassword Set Server Root Password
+	//
+	// Sets root's password on a KVM server. It takes effect the next time the
+	// server is started after being stopped, and is asked for on the server's
+	// console and nowhere else, since SSH takes keys only. The password is
+	// hashed here and is never stored or logged. Like the console it opens,
+	// this takes a signed-in person and not an API key.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/root-password (the `SetServerRootPassword` operationId).
+	SetServerRootPassword(ctx context.Context, serverId openapi_types.UUID, body SetServerRootPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SwitchServerShellOff Switch Server Shell Off
+	//
+	// Switches the shell off. The key that signs for the server is deleted
+	// and any shell open on it ends, so nothing can sign in that way until it
+	// is switched on again, which makes a new key.
+	//
+	// Corresponds with DELETE /v1/servers/{server_id}/shell (the `SwitchServerShellOff` operationId).
+	SwitchServerShellOff(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SwitchServerShellOn Switch Server Shell On
+	//
+	// Switches the shell on for a KVM server: a terminal from its page,
+	// signed in as root with a certificate that is signed for the one session
+	// and lasts two minutes, so no key or password of the customer's is used.
+	// A server created with the shell on trusts it already. One that was not
+	// is given a command here to run once as root. Asking again answers the
+	// same command and changes nothing. Like the shell it opens, this takes a
+	// signed-in person and not an API key.
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/shell (the `SwitchServerShellOn` operationId).
+	SwitchServerShellOn(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListServerSnapshots List Server Snapshots
+	//
+	// A KVM server's disk snapshots and whether one is taken each night. A
+	// snapshot lives on the same host as the disk: it undoes a change in
+	// seconds and is not a backup. A server that takes none answers with an
+	// empty list.
+	//
+	// Corresponds with GET /v1/servers/{server_id}/snapshots (the `ListServerSnapshots` operationId).
+	ListServerSnapshots(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateServerSnapshotWithBody Create Server Snapshot
+	//
+	// Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/servers/{server_id}/snapshots (the `CreateServerSnapshot` operationId).
+	CreateServerSnapshotWithBody(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateServerSnapshot Create Server Snapshot
+	//
+	// Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/servers/{server_id}/snapshots (the `CreateServerSnapshot` operationId).
+	CreateServerSnapshot(ctx context.Context, serverId openapi_types.UUID, body CreateServerSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetServerSnapshotScheduleWithBody Set Server Snapshot Schedule
+	//
+	// Turns the nightly snapshot on or off. The newest `keep` nightly
+	// snapshots are kept, and the ones people took are left alone.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/snapshots/schedule (the `SetServerSnapshotSchedule` operationId).
+	SetServerSnapshotScheduleWithBody(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetServerSnapshotSchedule Set Server Snapshot Schedule
+	//
+	// Turns the nightly snapshot on or off. The newest `keep` nightly
+	// snapshots are kept, and the ones people took are left alone.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/snapshots/schedule (the `SetServerSnapshotSchedule` operationId).
+	SetServerSnapshotSchedule(ctx context.Context, serverId openapi_types.UUID, body SetServerSnapshotScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteServerSnapshot Delete Server Snapshot
+	//
+	// Deletes one snapshot. The disk as it is now is not touched.
+	//
+	// Corresponds with DELETE /v1/servers/{server_id}/snapshots/{snapshot_id} (the `DeleteServerSnapshot` operationId).
+	DeleteServerSnapshot(ctx context.Context, serverId openapi_types.UUID, snapshotId int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevertServerSnapshotWithBody Revert Server Snapshot
+	//
+	// Puts the disk back as the snapshot holds it. The server has to be
+	// stopped, what was written since is lost, and `confirm` must be the
+	// server's name.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/servers/{server_id}/snapshots/{snapshot_id}/revert (the `RevertServerSnapshot` operationId).
+	RevertServerSnapshotWithBody(ctx context.Context, serverId openapi_types.UUID, snapshotId int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevertServerSnapshot Revert Server Snapshot
+	//
+	// Puts the disk back as the snapshot holds it. The server has to be
+	// stopped, what was written since is lost, and `confirm` must be the
+	// server's name.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/servers/{server_id}/snapshots/{snapshot_id}/revert (the `RevertServerSnapshot` operationId).
+	RevertServerSnapshot(ctx context.Context, serverId openapi_types.UUID, snapshotId int, body RevertServerSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteSshKey Delete Ssh Key
 	//
 	// Servers created with this key keep it.
@@ -10093,12 +10549,16 @@ type ClientInterface interface {
 
 	// ListVolumeBackups List Volume Backups
 	//
+	// A volume's backups, newest first: the ones taken on request and the
+	// ones taken every night, read from the engine.
+	//
 	// Corresponds with GET /v1/volumes/{volume_id}/backups (the `ListVolumeBackups` operationId).
 	ListVolumeBackups(ctx context.Context, volumeId openapi_types.UUID, params *ListVolumeBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateVolumeBackup Create Volume Backup
 	//
-	// Snapshots the volume now. Volumes are backed up only on request.
+	// Backs the volume up now (backup.create). It is kept for 30 days. The
+	// engine also backs up every attached volume each night.
 	//
 	// Corresponds with POST /v1/volumes/{volume_id}/backups (the `CreateVolumeBackup` operationId).
 	CreateVolumeBackup(ctx context.Context, volumeId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -10451,8 +10911,8 @@ func (c *Client) RevokeApiKey(ctx context.Context, apiKeyId openapi_types.UUID, 
 
 // GetCsrfToken Get Csrf Token
 //
-// Returns the CSRF token and sets the `dekka_csrf` cookie if needed. Send
-// the token as `X-CSRF-Token` on every mutating request.
+// Returns the CSRF token and sets the CSRF cookie if needed (`__Host-dekka_csrf`
+// in production). Send the token as `X-CSRF-Token` on every mutating request.
 //
 // Corresponds with GET /v1/auth/csrf (the `GetCsrfToken` operationId).
 func (c *Client) GetCsrfToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -10781,10 +11241,11 @@ func (c *Client) GetBackup(ctx context.Context, backupId openapi_types.UUID, req
 // RestoreBackupWithBody Restore Backup
 //
 // Restores a completed backup over the current data (backup.restore).
-// `confirm` must be the database's name, or the volume's service's name;
-// otherwise it answers 422 confirmation_required. For a database,
-// `target_time` restores to that moment instead of to the backup as taken.
-// Returns the operation.
+// `confirm` must be the database's or the cache's name, or the volume's
+// service's name; otherwise it answers 422 confirmation_required. A cache
+// or a volume's service is stopped while its backup is put back. For a
+// Postgres database, `target_time` restores to that moment instead of to
+// the backup as taken. Returns the operation.
 //
 // Takes any type of body and a specified content type.
 //
@@ -10804,10 +11265,11 @@ func (c *Client) RestoreBackupWithBody(ctx context.Context, backupId openapi_typ
 // RestoreBackup Restore Backup
 //
 // Restores a completed backup over the current data (backup.restore).
-// `confirm` must be the database's name, or the volume's service's name;
-// otherwise it answers 422 confirmation_required. For a database,
-// `target_time` restores to that moment instead of to the backup as taken.
-// Returns the operation.
+// `confirm` must be the database's or the cache's name, or the volume's
+// service's name; otherwise it answers 422 confirmation_required. A cache
+// or a volume's service is stopped while its backup is put back. For a
+// Postgres database, `target_time` restores to that moment instead of to
+// the backup as taken. Returns the operation.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -11859,6 +12321,66 @@ func (c *Client) ReadCompose(ctx context.Context, environmentId openapi_types.UU
 	return c.Client.Do(req)
 }
 
+// GetEnvironmentFirewall Get Environment Firewall
+//
+// The inbound rules on the environment's private network, which its KVM
+// servers share. An environment gets the network with its first such server.
+//
+// Corresponds with GET /v1/environments/{environment_id}/firewall (the `GetEnvironmentFirewall` operationId).
+func (c *Client) GetEnvironmentFirewall(ctx context.Context, environmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEnvironmentFirewallRequest(c.Server, environmentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceEnvironmentFirewallWithBody Replace Environment Firewall
+//
+// Replaces every rule at once. The host takes the new rules within
+// seconds. They judge new connections, and a connection that is already
+// open is not cut.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/environments/{environment_id}/firewall (the `ReplaceEnvironmentFirewall` operationId).
+func (c *Client) ReplaceEnvironmentFirewallWithBody(ctx context.Context, environmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceEnvironmentFirewallRequestWithBody(c.Server, environmentId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReplaceEnvironmentFirewall Replace Environment Firewall
+//
+// Replaces every rule at once. The host takes the new rules within
+// seconds. They judge new connections, and a connection that is already
+// open is not cut.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/environments/{environment_id}/firewall (the `ReplaceEnvironmentFirewall` operationId).
+func (c *Client) ReplaceEnvironmentFirewall(ctx context.Context, environmentId openapi_types.UUID, body ReplaceEnvironmentFirewallJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceEnvironmentFirewallRequest(c.Server, environmentId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // PlanTemplateWithBody Plan Template
 //
 // Plans a template into the environment as a changeset (source template)
@@ -12127,6 +12649,25 @@ func (c *Client) ListGithubRepos(ctx context.Context, installationId int, reqEdi
 // Corresponds with GET /v1/github/installations/{installation_id}/repos/{repo_id}/branches (the `ListGithubBranches` operationId).
 func (c *Client) ListGithubBranches(ctx context.Context, installationId int, repoId int, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListGithubBranchesRequest(c.Server, installationId, repoId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DetectGithubSettings Detect Github Settings
+//
+// How Dekka would build and run this branch, from the files at its root: the
+// framework, build strategy, port, start command and health path, plus any
+// Compose file or dekka.toml found. Nothing is run; the files are only read.
+//
+// Corresponds with GET /v1/github/installations/{installation_id}/repos/{repo_id}/detect (the `DetectGithubSettings` operationId).
+func (c *Client) DetectGithubSettings(ctx context.Context, installationId int, repoId int, params *DetectGithubSettingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDetectGithubSettingsRequest(c.Server, installationId, repoId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12609,6 +13150,44 @@ func (c *Client) ListMySessions(ctx context.Context, reqEditors ...RequestEditor
 // Corresponds with DELETE /v1/me/sessions/{session_id} (the `RevokeMySession` operationId).
 func (c *Client) RevokeMySession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRevokeMySessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptTermsWithBody Accept Terms
+//
+// Accept the current terms of use. A person does this in the dashboard, so an API key can't.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/me/terms (the `AcceptTerms` operationId).
+func (c *Client) AcceptTermsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptTermsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptTerms Accept Terms
+//
+// Accept the current terms of use. A person does this in the dashboard, so an API key can't.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/me/terms (the `AcceptTerms` operationId).
+func (c *Client) AcceptTerms(ctx context.Context, body AcceptTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptTermsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14618,9 +15197,9 @@ func (c *Client) RunResourceAction(ctx context.Context, resourceId openapi_types
 
 // ListDatabaseBackups List Database Backups
 //
-// A Postgres database's backups, newest first: the ones taken on request
-// and the ones its daily schedule takes, read from the engine. Each says
-// where it is kept.
+// A Postgres database's or a Redis cache's backups, newest first: the
+// ones taken on request and the ones taken every night, read from the
+// engine. Each says where it is kept.
 //
 // Corresponds with GET /v1/resources/{resource_id}/backups (the `ListDatabaseBackups` operationId).
 func (c *Client) ListDatabaseBackups(ctx context.Context, resourceId openapi_types.UUID, params *ListDatabaseBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -14637,11 +15216,52 @@ func (c *Client) ListDatabaseBackups(ctx context.Context, resourceId openapi_typ
 
 // CreateDatabaseBackup Create Database Backup
 //
-// Takes a manual backup now (backup.create). It is kept for 30 days.
+// Takes a manual backup of a database or a cache now (backup.create). It
+// is kept for 30 days.
 //
 // Corresponds with POST /v1/resources/{resource_id}/backups (the `CreateDatabaseBackup` operationId).
 func (c *Client) CreateDatabaseBackup(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateDatabaseBackupRequest(c.Server, resourceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PlanDeclaredServices Plan Declared Services
+//
+// Plans what the service's dekka.toml declares and the environment lacks:
+// the missing databases, caches, buckets and queues, and a connection from
+// the service to each declared one. Nothing changes until the changeset is
+// deployed with POST /v1/changesets/{id}/deploy. Answers 409 nothing_to_plan
+// when everything is already here and connected.
+//
+// Corresponds with POST /v1/resources/{resource_id}/config/plan (the `PlanDeclaredServices` operationId).
+func (c *Client) PlanDeclaredServices(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPlanDeclaredServicesRequest(c.Server, resourceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeclaredServices Declared Services
+//
+// The databases, caches, buckets and queues the service's dekka.toml (or
+// dekka.json) declares under [services.<name>], read at its latest deployed
+// commit, and whether each exists in the environment and is connected.
+//
+// Corresponds with GET /v1/resources/{resource_id}/config/services (the `DeclaredServices` operationId).
+func (c *Client) DeclaredServices(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeclaredServicesRequest(c.Server, resourceId)
 	if err != nil {
 		return nil, err
 	}
@@ -15145,11 +15765,11 @@ func (c *Client) RestoreDatabase(ctx context.Context, resourceId openapi_types.U
 
 // RotateDatabaseCredentials Rotate Database Credentials
 //
-// Issues new credentials for every active connection to this database.
-// Each connection goes active, pending, active: the engine rotates
-// (connection.configure with rotate: true), Dekka rebinds the app's
-// variable and restarts it. With no active connection it answers 409
-// no_connections.
+// Issues new credentials for every active connection to this database,
+// cache, bucket or queue. Each connection goes active, pending, active: the
+// engine rotates (connection.configure with rotate: true) and revokes the old
+// credential, and Dekka rebinds the app's variables and restarts it. With no
+// active connection it answers 409 no_connections.
 //
 // Corresponds with POST /v1/resources/{resource_id}/rotate-credentials (the `RotateDatabaseCredentials` operationId).
 func (c *Client) RotateDatabaseCredentials(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -15388,6 +16008,251 @@ func (c *Client) ResizeServer(ctx context.Context, serverId openapi_types.UUID, 
 	return c.Client.Do(req)
 }
 
+// SetServerRootPasswordWithBody Set Server Root Password
+//
+// Sets root's password on a KVM server. It takes effect the next time the
+// server is started after being stopped, and is asked for on the server's
+// console and nowhere else, since SSH takes keys only. The password is
+// hashed here and is never stored or logged. Like the console it opens,
+// this takes a signed-in person and not an API key.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/servers/{server_id}/root-password (the `SetServerRootPassword` operationId).
+func (c *Client) SetServerRootPasswordWithBody(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetServerRootPasswordRequestWithBody(c.Server, serverId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetServerRootPassword Set Server Root Password
+//
+// Sets root's password on a KVM server. It takes effect the next time the
+// server is started after being stopped, and is asked for on the server's
+// console and nowhere else, since SSH takes keys only. The password is
+// hashed here and is never stored or logged. Like the console it opens,
+// this takes a signed-in person and not an API key.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/servers/{server_id}/root-password (the `SetServerRootPassword` operationId).
+func (c *Client) SetServerRootPassword(ctx context.Context, serverId openapi_types.UUID, body SetServerRootPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetServerRootPasswordRequest(c.Server, serverId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SwitchServerShellOff Switch Server Shell Off
+//
+// Switches the shell off. The key that signs for the server is deleted
+// and any shell open on it ends, so nothing can sign in that way until it
+// is switched on again, which makes a new key.
+//
+// Corresponds with DELETE /v1/servers/{server_id}/shell (the `SwitchServerShellOff` operationId).
+func (c *Client) SwitchServerShellOff(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSwitchServerShellOffRequest(c.Server, serverId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SwitchServerShellOn Switch Server Shell On
+//
+// Switches the shell on for a KVM server: a terminal from its page,
+// signed in as root with a certificate that is signed for the one session
+// and lasts two minutes, so no key or password of the customer's is used.
+// A server created with the shell on trusts it already. One that was not
+// is given a command here to run once as root. Asking again answers the
+// same command and changes nothing. Like the shell it opens, this takes a
+// signed-in person and not an API key.
+//
+// Corresponds with PUT /v1/servers/{server_id}/shell (the `SwitchServerShellOn` operationId).
+func (c *Client) SwitchServerShellOn(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSwitchServerShellOnRequest(c.Server, serverId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListServerSnapshots List Server Snapshots
+//
+// A KVM server's disk snapshots and whether one is taken each night. A
+// snapshot lives on the same host as the disk: it undoes a change in
+// seconds and is not a backup. A server that takes none answers with an
+// empty list.
+//
+// Corresponds with GET /v1/servers/{server_id}/snapshots (the `ListServerSnapshots` operationId).
+func (c *Client) ListServerSnapshots(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListServerSnapshotsRequest(c.Server, serverId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateServerSnapshotWithBody Create Server Snapshot
+//
+// Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/servers/{server_id}/snapshots (the `CreateServerSnapshot` operationId).
+func (c *Client) CreateServerSnapshotWithBody(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateServerSnapshotRequestWithBody(c.Server, serverId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateServerSnapshot Create Server Snapshot
+//
+// Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/servers/{server_id}/snapshots (the `CreateServerSnapshot` operationId).
+func (c *Client) CreateServerSnapshot(ctx context.Context, serverId openapi_types.UUID, body CreateServerSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateServerSnapshotRequest(c.Server, serverId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetServerSnapshotScheduleWithBody Set Server Snapshot Schedule
+//
+// Turns the nightly snapshot on or off. The newest `keep` nightly
+// snapshots are kept, and the ones people took are left alone.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/servers/{server_id}/snapshots/schedule (the `SetServerSnapshotSchedule` operationId).
+func (c *Client) SetServerSnapshotScheduleWithBody(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetServerSnapshotScheduleRequestWithBody(c.Server, serverId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetServerSnapshotSchedule Set Server Snapshot Schedule
+//
+// Turns the nightly snapshot on or off. The newest `keep` nightly
+// snapshots are kept, and the ones people took are left alone.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/servers/{server_id}/snapshots/schedule (the `SetServerSnapshotSchedule` operationId).
+func (c *Client) SetServerSnapshotSchedule(ctx context.Context, serverId openapi_types.UUID, body SetServerSnapshotScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetServerSnapshotScheduleRequest(c.Server, serverId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteServerSnapshot Delete Server Snapshot
+//
+// Deletes one snapshot. The disk as it is now is not touched.
+//
+// Corresponds with DELETE /v1/servers/{server_id}/snapshots/{snapshot_id} (the `DeleteServerSnapshot` operationId).
+func (c *Client) DeleteServerSnapshot(ctx context.Context, serverId openapi_types.UUID, snapshotId int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteServerSnapshotRequest(c.Server, serverId, snapshotId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RevertServerSnapshotWithBody Revert Server Snapshot
+//
+// Puts the disk back as the snapshot holds it. The server has to be
+// stopped, what was written since is lost, and `confirm` must be the
+// server's name.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/servers/{server_id}/snapshots/{snapshot_id}/revert (the `RevertServerSnapshot` operationId).
+func (c *Client) RevertServerSnapshotWithBody(ctx context.Context, serverId openapi_types.UUID, snapshotId int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevertServerSnapshotRequestWithBody(c.Server, serverId, snapshotId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RevertServerSnapshot Revert Server Snapshot
+//
+// Puts the disk back as the snapshot holds it. The server has to be
+// stopped, what was written since is lost, and `confirm` must be the
+// server's name.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/servers/{server_id}/snapshots/{snapshot_id}/revert (the `RevertServerSnapshot` operationId).
+func (c *Client) RevertServerSnapshot(ctx context.Context, serverId openapi_types.UUID, snapshotId int, body RevertServerSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevertServerSnapshotRequest(c.Server, serverId, snapshotId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // DeleteSshKey Delete Ssh Key
 //
 // Servers created with this key keep it.
@@ -15545,6 +16410,9 @@ func (c *Client) DeleteVolume(ctx context.Context, volumeId openapi_types.UUID, 
 
 // ListVolumeBackups List Volume Backups
 //
+// A volume's backups, newest first: the ones taken on request and the
+// ones taken every night, read from the engine.
+//
 // Corresponds with GET /v1/volumes/{volume_id}/backups (the `ListVolumeBackups` operationId).
 func (c *Client) ListVolumeBackups(ctx context.Context, volumeId openapi_types.UUID, params *ListVolumeBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListVolumeBackupsRequest(c.Server, volumeId, params)
@@ -15560,7 +16428,8 @@ func (c *Client) ListVolumeBackups(ctx context.Context, volumeId openapi_types.U
 
 // CreateVolumeBackup Create Volume Backup
 //
-// Snapshots the volume now. Volumes are backed up only on request.
+// Backs the volume up now (backup.create). It is kept for 30 days. The
+// engine also backs up every attached volume each night.
 //
 // Corresponds with POST /v1/volumes/{volume_id}/backups (the `CreateVolumeBackup` operationId).
 func (c *Client) CreateVolumeBackup(ctx context.Context, volumeId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -18306,6 +19175,87 @@ func NewReadComposeRequestWithBody(server string, environmentId openapi_types.UU
 	return req, nil
 }
 
+// NewGetEnvironmentFirewallRequest constructs an http.Request for the GetEnvironmentFirewall method
+func NewGetEnvironmentFirewallRequest(server string, environmentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "environment_id", environmentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/environments/%s/firewall", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReplaceEnvironmentFirewallRequest calls the generic ReplaceEnvironmentFirewall builder with application/json body
+func NewReplaceEnvironmentFirewallRequest(server string, environmentId openapi_types.UUID, body ReplaceEnvironmentFirewallJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplaceEnvironmentFirewallRequestWithBody(server, environmentId, "application/json", bodyReader)
+}
+
+// NewReplaceEnvironmentFirewallRequestWithBody constructs an http.Request for the ReplaceEnvironmentFirewall method, with any body, and a specified content type
+func NewReplaceEnvironmentFirewallRequestWithBody(server string, environmentId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "environment_id", environmentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/environments/%s/firewall", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPlanTemplateRequest calls the generic PlanTemplate builder with application/json body
 func NewPlanTemplateRequest(server string, environmentId openapi_types.UUID, templateId string, body PlanTemplateJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -18743,6 +19693,82 @@ func NewListGithubBranchesRequest(server string, installationId int, repoId int)
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDetectGithubSettingsRequest constructs an http.Request for the DetectGithubSettings method
+func NewDetectGithubSettingsRequest(server string, installationId int, repoId int, params *DetectGithubSettingsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "installation_id", installationId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "repo_id", repoId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/github/installations/%s/repos/%s/detect", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "branch", params.Branch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.RootDir != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "root_dir", *params.RootDir, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -19618,6 +20644,46 @@ func NewRevokeMySessionRequest(server string, sessionId openapi_types.UUID) (*ht
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewAcceptTermsRequest calls the generic AcceptTerms builder with application/json body
+func NewAcceptTermsRequest(server string, body AcceptTermsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAcceptTermsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAcceptTermsRequestWithBody constructs an http.Request for the AcceptTerms method, with any body, and a specified content type
+func NewAcceptTermsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/terms")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -23556,6 +24622,74 @@ func NewCreateDatabaseBackupRequest(server string, resourceId openapi_types.UUID
 	return req, nil
 }
 
+// NewPlanDeclaredServicesRequest constructs an http.Request for the PlanDeclaredServices method
+func NewPlanDeclaredServicesRequest(server string, resourceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "resource_id", resourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/resources/%s/config/plan", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeclaredServicesRequest constructs an http.Request for the DeclaredServices method
+func NewDeclaredServicesRequest(server string, resourceId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "resource_id", resourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/resources/%s/config/services", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListConnectionStringsRequest constructs an http.Request for the ListConnectionStrings method
 func NewListConnectionStringsRequest(server string, resourceId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -24975,6 +26109,344 @@ func NewResizeServerRequestWithBody(server string, serverId openapi_types.UUID, 
 	return req, nil
 }
 
+// NewSetServerRootPasswordRequest calls the generic SetServerRootPassword builder with application/json body
+func NewSetServerRootPasswordRequest(server string, serverId openapi_types.UUID, body SetServerRootPasswordJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetServerRootPasswordRequestWithBody(server, serverId, "application/json", bodyReader)
+}
+
+// NewSetServerRootPasswordRequestWithBody constructs an http.Request for the SetServerRootPassword method, with any body, and a specified content type
+func NewSetServerRootPasswordRequestWithBody(server string, serverId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/servers/%s/root-password", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSwitchServerShellOffRequest constructs an http.Request for the SwitchServerShellOff method
+func NewSwitchServerShellOffRequest(server string, serverId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/servers/%s/shell", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSwitchServerShellOnRequest constructs an http.Request for the SwitchServerShellOn method
+func NewSwitchServerShellOnRequest(server string, serverId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/servers/%s/shell", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListServerSnapshotsRequest constructs an http.Request for the ListServerSnapshots method
+func NewListServerSnapshotsRequest(server string, serverId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/servers/%s/snapshots", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateServerSnapshotRequest calls the generic CreateServerSnapshot builder with application/json body
+func NewCreateServerSnapshotRequest(server string, serverId openapi_types.UUID, body CreateServerSnapshotJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateServerSnapshotRequestWithBody(server, serverId, "application/json", bodyReader)
+}
+
+// NewCreateServerSnapshotRequestWithBody constructs an http.Request for the CreateServerSnapshot method, with any body, and a specified content type
+func NewCreateServerSnapshotRequestWithBody(server string, serverId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/servers/%s/snapshots", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetServerSnapshotScheduleRequest calls the generic SetServerSnapshotSchedule builder with application/json body
+func NewSetServerSnapshotScheduleRequest(server string, serverId openapi_types.UUID, body SetServerSnapshotScheduleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetServerSnapshotScheduleRequestWithBody(server, serverId, "application/json", bodyReader)
+}
+
+// NewSetServerSnapshotScheduleRequestWithBody constructs an http.Request for the SetServerSnapshotSchedule method, with any body, and a specified content type
+func NewSetServerSnapshotScheduleRequestWithBody(server string, serverId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/servers/%s/snapshots/schedule", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteServerSnapshotRequest constructs an http.Request for the DeleteServerSnapshot method
+func NewDeleteServerSnapshotRequest(server string, serverId openapi_types.UUID, snapshotId int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "snapshot_id", snapshotId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/servers/%s/snapshots/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevertServerSnapshotRequest calls the generic RevertServerSnapshot builder with application/json body
+func NewRevertServerSnapshotRequest(server string, serverId openapi_types.UUID, snapshotId int, body RevertServerSnapshotJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRevertServerSnapshotRequestWithBody(server, serverId, snapshotId, "application/json", bodyReader)
+}
+
+// NewRevertServerSnapshotRequestWithBody constructs an http.Request for the RevertServerSnapshot method, with any body, and a specified content type
+func NewRevertServerSnapshotRequestWithBody(server string, serverId openapi_types.UUID, snapshotId int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "snapshot_id", snapshotId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/servers/%s/snapshots/%s/revert", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteSshKeyRequest constructs an http.Request for the DeleteSshKey method
 func NewDeleteSshKeyRequest(server string, keyId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -25806,8 +27278,8 @@ type ClientWithResponsesInterface interface {
 
 	// GetCsrfTokenWithResponse Get Csrf Token
 	//
-	// Returns the CSRF token and sets the `dekka_csrf` cookie if needed. Send
-	// the token as `X-CSRF-Token` on every mutating request.
+	// Returns the CSRF token and sets the CSRF cookie if needed (`__Host-dekka_csrf`
+	// in production). Send the token as `X-CSRF-Token` on every mutating request.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -25982,10 +27454,11 @@ type ClientWithResponsesInterface interface {
 	// RestoreBackupWithBodyWithResponse Restore Backup
 	//
 	// Restores a completed backup over the current data (backup.restore).
-	// `confirm` must be the database's name, or the volume's service's name;
-	// otherwise it answers 422 confirmation_required. For a database,
-	// `target_time` restores to that moment instead of to the backup as taken.
-	// Returns the operation.
+	// `confirm` must be the database's or the cache's name, or the volume's
+	// service's name; otherwise it answers 422 confirmation_required. A cache
+	// or a volume's service is stopped while its backup is put back. For a
+	// Postgres database, `target_time` restores to that moment instead of to
+	// the backup as taken. Returns the operation.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -25995,10 +27468,11 @@ type ClientWithResponsesInterface interface {
 	// RestoreBackupWithResponse Restore Backup
 	//
 	// Restores a completed backup over the current data (backup.restore).
-	// `confirm` must be the database's name, or the volume's service's name;
-	// otherwise it answers 422 confirmation_required. For a database,
-	// `target_time` restores to that moment instead of to the backup as taken.
-	// Returns the operation.
+	// `confirm` must be the database's or the cache's name, or the volume's
+	// service's name; otherwise it answers 422 confirmation_required. A cache
+	// or a volume's service is stopped while its backup is put back. For a
+	// Postgres database, `target_time` restores to that moment instead of to
+	// the backup as taken. Returns the operation.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -26572,6 +28046,38 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/environments/{environment_id}/compose/read (the `ReadCompose` operationId).
 	ReadComposeWithResponse(ctx context.Context, environmentId openapi_types.UUID, body ReadComposeJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadComposeResponse, error)
 
+	// GetEnvironmentFirewallWithResponse Get Environment Firewall
+	//
+	// The inbound rules on the environment's private network, which its KVM
+	// servers share. An environment gets the network with its first such server.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/environments/{environment_id}/firewall (the `GetEnvironmentFirewall` operationId).
+	GetEnvironmentFirewallWithResponse(ctx context.Context, environmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetEnvironmentFirewallResponse, error)
+
+	// ReplaceEnvironmentFirewallWithBodyWithResponse Replace Environment Firewall
+	//
+	// Replaces every rule at once. The host takes the new rules within
+	// seconds. They judge new connections, and a connection that is already
+	// open is not cut.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/environments/{environment_id}/firewall (the `ReplaceEnvironmentFirewall` operationId).
+	ReplaceEnvironmentFirewallWithBodyWithResponse(ctx context.Context, environmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceEnvironmentFirewallResponse, error)
+
+	// ReplaceEnvironmentFirewallWithResponse Replace Environment Firewall
+	//
+	// Replaces every rule at once. The host takes the new rules within
+	// seconds. They judge new connections, and a connection that is already
+	// open is not cut.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/environments/{environment_id}/firewall (the `ReplaceEnvironmentFirewall` operationId).
+	ReplaceEnvironmentFirewallWithResponse(ctx context.Context, environmentId openapi_types.UUID, body ReplaceEnvironmentFirewallJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceEnvironmentFirewallResponse, error)
+
 	// PlanTemplateWithBodyWithResponse Plan Template
 	//
 	// Plans a template into the environment as a changeset (source template)
@@ -26713,6 +28219,17 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/github/installations/{installation_id}/repos/{repo_id}/branches (the `ListGithubBranches` operationId).
 	ListGithubBranchesWithResponse(ctx context.Context, installationId int, repoId int, reqEditors ...RequestEditorFn) (*ListGithubBranchesResponse, error)
+
+	// DetectGithubSettingsWithResponse Detect Github Settings
+	//
+	// How Dekka would build and run this branch, from the files at its root: the
+	// framework, build strategy, port, start command and health path, plus any
+	// Compose file or dekka.toml found. Nothing is run; the files are only read.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/github/installations/{installation_id}/repos/{repo_id}/detect (the `DetectGithubSettings` operationId).
+	DetectGithubSettingsWithResponse(ctx context.Context, installationId int, repoId int, params *DetectGithubSettingsParams, reqEditors ...RequestEditorFn) (*DetectGithubSettingsResponse, error)
 
 	// GithubSetupCallbackWithResponse Github Setup Callback
 	//
@@ -26951,6 +28468,24 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with DELETE /v1/me/sessions/{session_id} (the `RevokeMySession` operationId).
 	RevokeMySessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RevokeMySessionResponse, error)
+
+	// AcceptTermsWithBodyWithResponse Accept Terms
+	//
+	// Accept the current terms of use. A person does this in the dashboard, so an API key can't.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/me/terms (the `AcceptTerms` operationId).
+	AcceptTermsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptTermsResponse, error)
+
+	// AcceptTermsWithResponse Accept Terms
+	//
+	// Accept the current terms of use. A person does this in the dashboard, so an API key can't.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/me/terms (the `AcceptTerms` operationId).
+	AcceptTermsWithResponse(ctx context.Context, body AcceptTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptTermsResponse, error)
 
 	// GetOperationWithResponse Get Operation
 	//
@@ -27959,9 +29494,9 @@ type ClientWithResponsesInterface interface {
 
 	// ListDatabaseBackupsWithResponse List Database Backups
 	//
-	// A Postgres database's backups, newest first: the ones taken on request
-	// and the ones its daily schedule takes, read from the engine. Each says
-	// where it is kept.
+	// A Postgres database's or a Redis cache's backups, newest first: the
+	// ones taken on request and the ones taken every night, read from the
+	// engine. Each says where it is kept.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -27970,12 +29505,37 @@ type ClientWithResponsesInterface interface {
 
 	// CreateDatabaseBackupWithResponse Create Database Backup
 	//
-	// Takes a manual backup now (backup.create). It is kept for 30 days.
+	// Takes a manual backup of a database or a cache now (backup.create). It
+	// is kept for 30 days.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/resources/{resource_id}/backups (the `CreateDatabaseBackup` operationId).
 	CreateDatabaseBackupWithResponse(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CreateDatabaseBackupResponse, error)
+
+	// PlanDeclaredServicesWithResponse Plan Declared Services
+	//
+	// Plans what the service's dekka.toml declares and the environment lacks:
+	// the missing databases, caches, buckets and queues, and a connection from
+	// the service to each declared one. Nothing changes until the changeset is
+	// deployed with POST /v1/changesets/{id}/deploy. Answers 409 nothing_to_plan
+	// when everything is already here and connected.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/resources/{resource_id}/config/plan (the `PlanDeclaredServices` operationId).
+	PlanDeclaredServicesWithResponse(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PlanDeclaredServicesResponse, error)
+
+	// DeclaredServicesWithResponse Declared Services
+	//
+	// The databases, caches, buckets and queues the service's dekka.toml (or
+	// dekka.json) declares under [services.<name>], read at its latest deployed
+	// commit, and whether each exists in the environment and is connected.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/resources/{resource_id}/config/services (the `DeclaredServices` operationId).
+	DeclaredServicesWithResponse(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeclaredServicesResponse, error)
 
 	// ListConnectionStringsWithResponse List Connection Strings
 	//
@@ -28238,11 +29798,11 @@ type ClientWithResponsesInterface interface {
 
 	// RotateDatabaseCredentialsWithResponse Rotate Database Credentials
 	//
-	// Issues new credentials for every active connection to this database.
-	// Each connection goes active, pending, active: the engine rotates
-	// (connection.configure with rotate: true), Dekka rebinds the app's
-	// variable and restarts it. With no active connection it answers 409
-	// no_connections.
+	// Issues new credentials for every active connection to this database,
+	// cache, bucket or queue. Each connection goes active, pending, active: the
+	// engine rotates (connection.configure with rotate: true) and revokes the old
+	// credential, and Dekka rebinds the app's variables and restarts it. With no
+	// active connection it answers 409 no_connections.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -28365,6 +29925,139 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/servers/{server_id}/resize (the `ResizeServer` operationId).
 	ResizeServerWithResponse(ctx context.Context, serverId openapi_types.UUID, body ResizeServerJSONRequestBody, reqEditors ...RequestEditorFn) (*ResizeServerResponse, error)
 
+	// SetServerRootPasswordWithBodyWithResponse Set Server Root Password
+	//
+	// Sets root's password on a KVM server. It takes effect the next time the
+	// server is started after being stopped, and is asked for on the server's
+	// console and nowhere else, since SSH takes keys only. The password is
+	// hashed here and is never stored or logged. Like the console it opens,
+	// this takes a signed-in person and not an API key.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/root-password (the `SetServerRootPassword` operationId).
+	SetServerRootPasswordWithBodyWithResponse(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetServerRootPasswordResponse, error)
+
+	// SetServerRootPasswordWithResponse Set Server Root Password
+	//
+	// Sets root's password on a KVM server. It takes effect the next time the
+	// server is started after being stopped, and is asked for on the server's
+	// console and nowhere else, since SSH takes keys only. The password is
+	// hashed here and is never stored or logged. Like the console it opens,
+	// this takes a signed-in person and not an API key.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/root-password (the `SetServerRootPassword` operationId).
+	SetServerRootPasswordWithResponse(ctx context.Context, serverId openapi_types.UUID, body SetServerRootPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*SetServerRootPasswordResponse, error)
+
+	// SwitchServerShellOffWithResponse Switch Server Shell Off
+	//
+	// Switches the shell off. The key that signs for the server is deleted
+	// and any shell open on it ends, so nothing can sign in that way until it
+	// is switched on again, which makes a new key.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/servers/{server_id}/shell (the `SwitchServerShellOff` operationId).
+	SwitchServerShellOffWithResponse(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SwitchServerShellOffResponse, error)
+
+	// SwitchServerShellOnWithResponse Switch Server Shell On
+	//
+	// Switches the shell on for a KVM server: a terminal from its page,
+	// signed in as root with a certificate that is signed for the one session
+	// and lasts two minutes, so no key or password of the customer's is used.
+	// A server created with the shell on trusts it already. One that was not
+	// is given a command here to run once as root. Asking again answers the
+	// same command and changes nothing. Like the shell it opens, this takes a
+	// signed-in person and not an API key.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/shell (the `SwitchServerShellOn` operationId).
+	SwitchServerShellOnWithResponse(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SwitchServerShellOnResponse, error)
+
+	// ListServerSnapshotsWithResponse List Server Snapshots
+	//
+	// A KVM server's disk snapshots and whether one is taken each night. A
+	// snapshot lives on the same host as the disk: it undoes a change in
+	// seconds and is not a backup. A server that takes none answers with an
+	// empty list.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/servers/{server_id}/snapshots (the `ListServerSnapshots` operationId).
+	ListServerSnapshotsWithResponse(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListServerSnapshotsResponse, error)
+
+	// CreateServerSnapshotWithBodyWithResponse Create Server Snapshot
+	//
+	// Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/servers/{server_id}/snapshots (the `CreateServerSnapshot` operationId).
+	CreateServerSnapshotWithBodyWithResponse(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServerSnapshotResponse, error)
+
+	// CreateServerSnapshotWithResponse Create Server Snapshot
+	//
+	// Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/servers/{server_id}/snapshots (the `CreateServerSnapshot` operationId).
+	CreateServerSnapshotWithResponse(ctx context.Context, serverId openapi_types.UUID, body CreateServerSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServerSnapshotResponse, error)
+
+	// SetServerSnapshotScheduleWithBodyWithResponse Set Server Snapshot Schedule
+	//
+	// Turns the nightly snapshot on or off. The newest `keep` nightly
+	// snapshots are kept, and the ones people took are left alone.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/snapshots/schedule (the `SetServerSnapshotSchedule` operationId).
+	SetServerSnapshotScheduleWithBodyWithResponse(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetServerSnapshotScheduleResponse, error)
+
+	// SetServerSnapshotScheduleWithResponse Set Server Snapshot Schedule
+	//
+	// Turns the nightly snapshot on or off. The newest `keep` nightly
+	// snapshots are kept, and the ones people took are left alone.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/servers/{server_id}/snapshots/schedule (the `SetServerSnapshotSchedule` operationId).
+	SetServerSnapshotScheduleWithResponse(ctx context.Context, serverId openapi_types.UUID, body SetServerSnapshotScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetServerSnapshotScheduleResponse, error)
+
+	// DeleteServerSnapshotWithResponse Delete Server Snapshot
+	//
+	// Deletes one snapshot. The disk as it is now is not touched.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/servers/{server_id}/snapshots/{snapshot_id} (the `DeleteServerSnapshot` operationId).
+	DeleteServerSnapshotWithResponse(ctx context.Context, serverId openapi_types.UUID, snapshotId int, reqEditors ...RequestEditorFn) (*DeleteServerSnapshotResponse, error)
+
+	// RevertServerSnapshotWithBodyWithResponse Revert Server Snapshot
+	//
+	// Puts the disk back as the snapshot holds it. The server has to be
+	// stopped, what was written since is lost, and `confirm` must be the
+	// server's name.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/servers/{server_id}/snapshots/{snapshot_id}/revert (the `RevertServerSnapshot` operationId).
+	RevertServerSnapshotWithBodyWithResponse(ctx context.Context, serverId openapi_types.UUID, snapshotId int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RevertServerSnapshotResponse, error)
+
+	// RevertServerSnapshotWithResponse Revert Server Snapshot
+	//
+	// Puts the disk back as the snapshot holds it. The server has to be
+	// stopped, what was written since is lost, and `confirm` must be the
+	// server's name.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/servers/{server_id}/snapshots/{snapshot_id}/revert (the `RevertServerSnapshot` operationId).
+	RevertServerSnapshotWithResponse(ctx context.Context, serverId openapi_types.UUID, snapshotId int, body RevertServerSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*RevertServerSnapshotResponse, error)
+
 	// DeleteSshKeyWithResponse Delete Ssh Key
 	//
 	// Servers created with this key keep it.
@@ -28442,6 +30135,9 @@ type ClientWithResponsesInterface interface {
 
 	// ListVolumeBackupsWithResponse List Volume Backups
 	//
+	// A volume's backups, newest first: the ones taken on request and the
+	// ones taken every night, read from the engine.
+	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /v1/volumes/{volume_id}/backups (the `ListVolumeBackups` operationId).
@@ -28449,7 +30145,8 @@ type ClientWithResponsesInterface interface {
 
 	// CreateVolumeBackupWithResponse Create Volume Backup
 	//
-	// Snapshots the volume now. Volumes are backed up only on request.
+	// Backs the volume up now (backup.create). It is kept for 30 days. The
+	// engine also backs up every attached volume each night.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -31866,6 +33563,116 @@ func (r ReadComposeResponse) ContentType() string {
 	return ""
 }
 
+type GetEnvironmentFirewallResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *FirewallOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetEnvironmentFirewallResponse) GetJSON200() *FirewallOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r GetEnvironmentFirewallResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r GetEnvironmentFirewallResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r GetEnvironmentFirewallResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEnvironmentFirewallResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEnvironmentFirewallResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetEnvironmentFirewallResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReplaceEnvironmentFirewallResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *FirewallOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReplaceEnvironmentFirewallResponse) GetJSON200() *FirewallOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r ReplaceEnvironmentFirewallResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r ReplaceEnvironmentFirewallResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r ReplaceEnvironmentFirewallResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplaceEnvironmentFirewallResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplaceEnvironmentFirewallResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReplaceEnvironmentFirewallResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PlanTemplateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -32458,6 +34265,61 @@ func (r ListGithubBranchesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListGithubBranchesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DetectGithubSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Detection
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DetectGithubSettingsResponse) GetJSON200() *Detection {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r DetectGithubSettingsResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r DetectGithubSettingsResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r DetectGithubSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DetectGithubSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DetectGithubSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DetectGithubSettingsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -33674,6 +35536,61 @@ func (r RevokeMySessionResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RevokeMySessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AcceptTermsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TermsStatus
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AcceptTermsResponse) GetJSON200() *TermsStatus {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r AcceptTermsResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r AcceptTermsResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r AcceptTermsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AcceptTermsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcceptTermsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AcceptTermsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -38409,6 +40326,116 @@ func (r CreateDatabaseBackupResponse) ContentType() string {
 	return ""
 }
 
+type PlanDeclaredServicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ChangesetOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PlanDeclaredServicesResponse) GetJSON201() *ChangesetOut {
+	return r.JSON201
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r PlanDeclaredServicesResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r PlanDeclaredServicesResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r PlanDeclaredServicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PlanDeclaredServicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PlanDeclaredServicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PlanDeclaredServicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeclaredServicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ConfigServicesOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeclaredServicesResponse) GetJSON200() *ConfigServicesOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r DeclaredServicesResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r DeclaredServicesResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r DeclaredServicesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeclaredServicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeclaredServicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeclaredServicesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListConnectionStringsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -40052,6 +42079,432 @@ func (r ResizeServerResponse) ContentType() string {
 	return ""
 }
 
+type SetServerRootPasswordResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r SetServerRootPasswordResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r SetServerRootPasswordResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r SetServerRootPasswordResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetServerRootPasswordResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetServerRootPasswordResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetServerRootPasswordResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SwitchServerShellOffResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r SwitchServerShellOffResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r SwitchServerShellOffResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r SwitchServerShellOffResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SwitchServerShellOffResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SwitchServerShellOffResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SwitchServerShellOffResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SwitchServerShellOnResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServerShellOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SwitchServerShellOnResponse) GetJSON200() *ServerShellOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r SwitchServerShellOnResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r SwitchServerShellOnResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r SwitchServerShellOnResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SwitchServerShellOnResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SwitchServerShellOnResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SwitchServerShellOnResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListServerSnapshotsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SnapshotsOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListServerSnapshotsResponse) GetJSON200() *SnapshotsOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r ListServerSnapshotsResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r ListServerSnapshotsResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r ListServerSnapshotsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListServerSnapshotsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListServerSnapshotsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListServerSnapshotsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateServerSnapshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *SnapshotsOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CreateServerSnapshotResponse) GetJSON202() *SnapshotsOut {
+	return r.JSON202
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r CreateServerSnapshotResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r CreateServerSnapshotResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateServerSnapshotResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateServerSnapshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateServerSnapshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateServerSnapshotResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetServerSnapshotScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SnapshotsOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetServerSnapshotScheduleResponse) GetJSON200() *SnapshotsOut {
+	return r.JSON200
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r SetServerSnapshotScheduleResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r SetServerSnapshotScheduleResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r SetServerSnapshotScheduleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetServerSnapshotScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetServerSnapshotScheduleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetServerSnapshotScheduleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteServerSnapshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *SnapshotsOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r DeleteServerSnapshotResponse) GetJSON202() *SnapshotsOut {
+	return r.JSON202
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r DeleteServerSnapshotResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r DeleteServerSnapshotResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteServerSnapshotResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteServerSnapshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteServerSnapshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteServerSnapshotResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevertServerSnapshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *SnapshotsOut
+	// JSON4XX the response for an HTTP 4XX `application/json` response
+	JSON4XX *ErrorEnvelope
+	// JSON5XX the response for an HTTP 5XX `application/json` response
+	JSON5XX *ErrorEnvelope
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r RevertServerSnapshotResponse) GetJSON202() *SnapshotsOut {
+	return r.JSON202
+}
+
+// GetJSON4XX returns the response for an HTTP 4XX `application/json` response
+func (r RevertServerSnapshotResponse) GetJSON4XX() *ErrorEnvelope {
+	return r.JSON4XX
+}
+
+// GetJSON5XX returns the response for an HTTP 5XX `application/json` response
+func (r RevertServerSnapshotResponse) GetJSON5XX() *ErrorEnvelope {
+	return r.JSON5XX
+}
+
+// GetBody returns the raw response body bytes
+func (r RevertServerSnapshotResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RevertServerSnapshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevertServerSnapshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevertServerSnapshotResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteSshKeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -41153,8 +43606,8 @@ func (c *ClientWithResponses) RevokeApiKeyWithResponse(ctx context.Context, apiK
 
 // GetCsrfTokenWithResponse Get Csrf Token
 //
-// Returns the CSRF token and sets the `dekka_csrf` cookie if needed. Send
-// the token as `X-CSRF-Token` on every mutating request.
+// Returns the CSRF token and sets the CSRF cookie if needed (`__Host-dekka_csrf`
+// in production). Send the token as `X-CSRF-Token` on every mutating request.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -41430,10 +43883,11 @@ func (c *ClientWithResponses) GetBackupWithResponse(ctx context.Context, backupI
 // RestoreBackupWithBodyWithResponse Restore Backup
 //
 // Restores a completed backup over the current data (backup.restore).
-// `confirm` must be the database's name, or the volume's service's name;
-// otherwise it answers 422 confirmation_required. For a database,
-// `target_time` restores to that moment instead of to the backup as taken.
-// Returns the operation.
+// `confirm` must be the database's or the cache's name, or the volume's
+// service's name; otherwise it answers 422 confirmation_required. A cache
+// or a volume's service is stopped while its backup is put back. For a
+// Postgres database, `target_time` restores to that moment instead of to
+// the backup as taken. Returns the operation.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -41449,10 +43903,11 @@ func (c *ClientWithResponses) RestoreBackupWithBodyWithResponse(ctx context.Cont
 // RestoreBackupWithResponse Restore Backup
 //
 // Restores a completed backup over the current data (backup.restore).
-// `confirm` must be the database's name, or the volume's service's name;
-// otherwise it answers 422 confirmation_required. For a database,
-// `target_time` restores to that moment instead of to the backup as taken.
-// Returns the operation.
+// `confirm` must be the database's or the cache's name, or the volume's
+// service's name; otherwise it answers 422 confirmation_required. A cache
+// or a volume's service is stopped while its backup is put back. For a
+// Postgres database, `target_time` restores to that moment instead of to
+// the backup as taken. Returns the operation.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -42344,6 +44799,56 @@ func (c *ClientWithResponses) ReadComposeWithResponse(ctx context.Context, envir
 	return ParseReadComposeResponse(rsp)
 }
 
+// GetEnvironmentFirewallWithResponse Get Environment Firewall
+//
+// The inbound rules on the environment's private network, which its KVM
+// servers share. An environment gets the network with its first such server.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/environments/{environment_id}/firewall (the `GetEnvironmentFirewall` operationId).
+func (c *ClientWithResponses) GetEnvironmentFirewallWithResponse(ctx context.Context, environmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetEnvironmentFirewallResponse, error) {
+	rsp, err := c.GetEnvironmentFirewall(ctx, environmentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEnvironmentFirewallResponse(rsp)
+}
+
+// ReplaceEnvironmentFirewallWithBodyWithResponse Replace Environment Firewall
+//
+// Replaces every rule at once. The host takes the new rules within
+// seconds. They judge new connections, and a connection that is already
+// open is not cut.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/environments/{environment_id}/firewall (the `ReplaceEnvironmentFirewall` operationId).
+func (c *ClientWithResponses) ReplaceEnvironmentFirewallWithBodyWithResponse(ctx context.Context, environmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceEnvironmentFirewallResponse, error) {
+	rsp, err := c.ReplaceEnvironmentFirewallWithBody(ctx, environmentId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceEnvironmentFirewallResponse(rsp)
+}
+
+// ReplaceEnvironmentFirewallWithResponse Replace Environment Firewall
+//
+// Replaces every rule at once. The host takes the new rules within
+// seconds. They judge new connections, and a connection that is already
+// open is not cut.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/environments/{environment_id}/firewall (the `ReplaceEnvironmentFirewall` operationId).
+func (c *ClientWithResponses) ReplaceEnvironmentFirewallWithResponse(ctx context.Context, environmentId openapi_types.UUID, body ReplaceEnvironmentFirewallJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceEnvironmentFirewallResponse, error) {
+	rsp, err := c.ReplaceEnvironmentFirewall(ctx, environmentId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceEnvironmentFirewallResponse(rsp)
+}
+
 // PlanTemplateWithBodyWithResponse Plan Template
 //
 // Plans a template into the environment as a changeset (source template)
@@ -42574,6 +45079,23 @@ func (c *ClientWithResponses) ListGithubBranchesWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseListGithubBranchesResponse(rsp)
+}
+
+// DetectGithubSettingsWithResponse Detect Github Settings
+//
+// How Dekka would build and run this branch, from the files at its root: the
+// framework, build strategy, port, start command and health path, plus any
+// Compose file or dekka.toml found. Nothing is run; the files are only read.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/github/installations/{installation_id}/repos/{repo_id}/detect (the `DetectGithubSettings` operationId).
+func (c *ClientWithResponses) DetectGithubSettingsWithResponse(ctx context.Context, installationId int, repoId int, params *DetectGithubSettingsParams, reqEditors ...RequestEditorFn) (*DetectGithubSettingsResponse, error) {
+	rsp, err := c.DetectGithubSettings(ctx, installationId, repoId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDetectGithubSettingsResponse(rsp)
 }
 
 // GithubSetupCallbackWithResponse Github Setup Callback
@@ -42980,6 +45502,36 @@ func (c *ClientWithResponses) RevokeMySessionWithResponse(ctx context.Context, s
 		return nil, err
 	}
 	return ParseRevokeMySessionResponse(rsp)
+}
+
+// AcceptTermsWithBodyWithResponse Accept Terms
+//
+// Accept the current terms of use. A person does this in the dashboard, so an API key can't.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/me/terms (the `AcceptTerms` operationId).
+func (c *ClientWithResponses) AcceptTermsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptTermsResponse, error) {
+	rsp, err := c.AcceptTermsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptTermsResponse(rsp)
+}
+
+// AcceptTermsWithResponse Accept Terms
+//
+// Accept the current terms of use. A person does this in the dashboard, so an API key can't.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/me/terms (the `AcceptTerms` operationId).
+func (c *ClientWithResponses) AcceptTermsWithResponse(ctx context.Context, body AcceptTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptTermsResponse, error) {
+	rsp, err := c.AcceptTerms(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptTermsResponse(rsp)
 }
 
 // GetOperationWithResponse Get Operation
@@ -44655,9 +47207,9 @@ func (c *ClientWithResponses) RunResourceActionWithResponse(ctx context.Context,
 
 // ListDatabaseBackupsWithResponse List Database Backups
 //
-// A Postgres database's backups, newest first: the ones taken on request
-// and the ones its daily schedule takes, read from the engine. Each says
-// where it is kept.
+// A Postgres database's or a Redis cache's backups, newest first: the
+// ones taken on request and the ones taken every night, read from the
+// engine. Each says where it is kept.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -44672,7 +47224,8 @@ func (c *ClientWithResponses) ListDatabaseBackupsWithResponse(ctx context.Contex
 
 // CreateDatabaseBackupWithResponse Create Database Backup
 //
-// Takes a manual backup now (backup.create). It is kept for 30 days.
+// Takes a manual backup of a database or a cache now (backup.create). It
+// is kept for 30 days.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -44683,6 +47236,42 @@ func (c *ClientWithResponses) CreateDatabaseBackupWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseCreateDatabaseBackupResponse(rsp)
+}
+
+// PlanDeclaredServicesWithResponse Plan Declared Services
+//
+// Plans what the service's dekka.toml declares and the environment lacks:
+// the missing databases, caches, buckets and queues, and a connection from
+// the service to each declared one. Nothing changes until the changeset is
+// deployed with POST /v1/changesets/{id}/deploy. Answers 409 nothing_to_plan
+// when everything is already here and connected.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/resources/{resource_id}/config/plan (the `PlanDeclaredServices` operationId).
+func (c *ClientWithResponses) PlanDeclaredServicesWithResponse(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PlanDeclaredServicesResponse, error) {
+	rsp, err := c.PlanDeclaredServices(ctx, resourceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePlanDeclaredServicesResponse(rsp)
+}
+
+// DeclaredServicesWithResponse Declared Services
+//
+// The databases, caches, buckets and queues the service's dekka.toml (or
+// dekka.json) declares under [services.<name>], read at its latest deployed
+// commit, and whether each exists in the environment and is connected.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/resources/{resource_id}/config/services (the `DeclaredServices` operationId).
+func (c *ClientWithResponses) DeclaredServicesWithResponse(ctx context.Context, resourceId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeclaredServicesResponse, error) {
+	rsp, err := c.DeclaredServices(ctx, resourceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeclaredServicesResponse(rsp)
 }
 
 // ListConnectionStringsWithResponse List Connection Strings
@@ -45102,11 +47691,11 @@ func (c *ClientWithResponses) RestoreDatabaseWithResponse(ctx context.Context, r
 
 // RotateDatabaseCredentialsWithResponse Rotate Database Credentials
 //
-// Issues new credentials for every active connection to this database.
-// Each connection goes active, pending, active: the engine rotates
-// (connection.configure with rotate: true), Dekka rebinds the app's
-// variable and restarts it. With no active connection it answers 409
-// no_connections.
+// Issues new credentials for every active connection to this database,
+// cache, bucket or queue. Each connection goes active, pending, active: the
+// engine rotates (connection.configure with rotate: true) and revokes the old
+// credential, and Dekka rebinds the app's variables and restarts it. With no
+// active connection it answers 409 no_connections.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -45307,6 +47896,211 @@ func (c *ClientWithResponses) ResizeServerWithResponse(ctx context.Context, serv
 	return ParseResizeServerResponse(rsp)
 }
 
+// SetServerRootPasswordWithBodyWithResponse Set Server Root Password
+//
+// Sets root's password on a KVM server. It takes effect the next time the
+// server is started after being stopped, and is asked for on the server's
+// console and nowhere else, since SSH takes keys only. The password is
+// hashed here and is never stored or logged. Like the console it opens,
+// this takes a signed-in person and not an API key.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/servers/{server_id}/root-password (the `SetServerRootPassword` operationId).
+func (c *ClientWithResponses) SetServerRootPasswordWithBodyWithResponse(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetServerRootPasswordResponse, error) {
+	rsp, err := c.SetServerRootPasswordWithBody(ctx, serverId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetServerRootPasswordResponse(rsp)
+}
+
+// SetServerRootPasswordWithResponse Set Server Root Password
+//
+// Sets root's password on a KVM server. It takes effect the next time the
+// server is started after being stopped, and is asked for on the server's
+// console and nowhere else, since SSH takes keys only. The password is
+// hashed here and is never stored or logged. Like the console it opens,
+// this takes a signed-in person and not an API key.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/servers/{server_id}/root-password (the `SetServerRootPassword` operationId).
+func (c *ClientWithResponses) SetServerRootPasswordWithResponse(ctx context.Context, serverId openapi_types.UUID, body SetServerRootPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*SetServerRootPasswordResponse, error) {
+	rsp, err := c.SetServerRootPassword(ctx, serverId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetServerRootPasswordResponse(rsp)
+}
+
+// SwitchServerShellOffWithResponse Switch Server Shell Off
+//
+// Switches the shell off. The key that signs for the server is deleted
+// and any shell open on it ends, so nothing can sign in that way until it
+// is switched on again, which makes a new key.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/servers/{server_id}/shell (the `SwitchServerShellOff` operationId).
+func (c *ClientWithResponses) SwitchServerShellOffWithResponse(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SwitchServerShellOffResponse, error) {
+	rsp, err := c.SwitchServerShellOff(ctx, serverId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSwitchServerShellOffResponse(rsp)
+}
+
+// SwitchServerShellOnWithResponse Switch Server Shell On
+//
+// Switches the shell on for a KVM server: a terminal from its page,
+// signed in as root with a certificate that is signed for the one session
+// and lasts two minutes, so no key or password of the customer's is used.
+// A server created with the shell on trusts it already. One that was not
+// is given a command here to run once as root. Asking again answers the
+// same command and changes nothing. Like the shell it opens, this takes a
+// signed-in person and not an API key.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/servers/{server_id}/shell (the `SwitchServerShellOn` operationId).
+func (c *ClientWithResponses) SwitchServerShellOnWithResponse(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SwitchServerShellOnResponse, error) {
+	rsp, err := c.SwitchServerShellOn(ctx, serverId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSwitchServerShellOnResponse(rsp)
+}
+
+// ListServerSnapshotsWithResponse List Server Snapshots
+//
+// A KVM server's disk snapshots and whether one is taken each night. A
+// snapshot lives on the same host as the disk: it undoes a change in
+// seconds and is not a backup. A server that takes none answers with an
+// empty list.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/servers/{server_id}/snapshots (the `ListServerSnapshots` operationId).
+func (c *ClientWithResponses) ListServerSnapshotsWithResponse(ctx context.Context, serverId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListServerSnapshotsResponse, error) {
+	rsp, err := c.ListServerSnapshots(ctx, serverId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListServerSnapshotsResponse(rsp)
+}
+
+// CreateServerSnapshotWithBodyWithResponse Create Server Snapshot
+//
+// Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/servers/{server_id}/snapshots (the `CreateServerSnapshot` operationId).
+func (c *ClientWithResponses) CreateServerSnapshotWithBodyWithResponse(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServerSnapshotResponse, error) {
+	rsp, err := c.CreateServerSnapshotWithBody(ctx, serverId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateServerSnapshotResponse(rsp)
+}
+
+// CreateServerSnapshotWithResponse Create Server Snapshot
+//
+// Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/servers/{server_id}/snapshots (the `CreateServerSnapshot` operationId).
+func (c *ClientWithResponses) CreateServerSnapshotWithResponse(ctx context.Context, serverId openapi_types.UUID, body CreateServerSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServerSnapshotResponse, error) {
+	rsp, err := c.CreateServerSnapshot(ctx, serverId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateServerSnapshotResponse(rsp)
+}
+
+// SetServerSnapshotScheduleWithBodyWithResponse Set Server Snapshot Schedule
+//
+// Turns the nightly snapshot on or off. The newest `keep` nightly
+// snapshots are kept, and the ones people took are left alone.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/servers/{server_id}/snapshots/schedule (the `SetServerSnapshotSchedule` operationId).
+func (c *ClientWithResponses) SetServerSnapshotScheduleWithBodyWithResponse(ctx context.Context, serverId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetServerSnapshotScheduleResponse, error) {
+	rsp, err := c.SetServerSnapshotScheduleWithBody(ctx, serverId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetServerSnapshotScheduleResponse(rsp)
+}
+
+// SetServerSnapshotScheduleWithResponse Set Server Snapshot Schedule
+//
+// Turns the nightly snapshot on or off. The newest `keep` nightly
+// snapshots are kept, and the ones people took are left alone.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/servers/{server_id}/snapshots/schedule (the `SetServerSnapshotSchedule` operationId).
+func (c *ClientWithResponses) SetServerSnapshotScheduleWithResponse(ctx context.Context, serverId openapi_types.UUID, body SetServerSnapshotScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetServerSnapshotScheduleResponse, error) {
+	rsp, err := c.SetServerSnapshotSchedule(ctx, serverId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetServerSnapshotScheduleResponse(rsp)
+}
+
+// DeleteServerSnapshotWithResponse Delete Server Snapshot
+//
+// Deletes one snapshot. The disk as it is now is not touched.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/servers/{server_id}/snapshots/{snapshot_id} (the `DeleteServerSnapshot` operationId).
+func (c *ClientWithResponses) DeleteServerSnapshotWithResponse(ctx context.Context, serverId openapi_types.UUID, snapshotId int, reqEditors ...RequestEditorFn) (*DeleteServerSnapshotResponse, error) {
+	rsp, err := c.DeleteServerSnapshot(ctx, serverId, snapshotId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteServerSnapshotResponse(rsp)
+}
+
+// RevertServerSnapshotWithBodyWithResponse Revert Server Snapshot
+//
+// Puts the disk back as the snapshot holds it. The server has to be
+// stopped, what was written since is lost, and `confirm` must be the
+// server's name.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/servers/{server_id}/snapshots/{snapshot_id}/revert (the `RevertServerSnapshot` operationId).
+func (c *ClientWithResponses) RevertServerSnapshotWithBodyWithResponse(ctx context.Context, serverId openapi_types.UUID, snapshotId int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RevertServerSnapshotResponse, error) {
+	rsp, err := c.RevertServerSnapshotWithBody(ctx, serverId, snapshotId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevertServerSnapshotResponse(rsp)
+}
+
+// RevertServerSnapshotWithResponse Revert Server Snapshot
+//
+// Puts the disk back as the snapshot holds it. The server has to be
+// stopped, what was written since is lost, and `confirm` must be the
+// server's name.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/servers/{server_id}/snapshots/{snapshot_id}/revert (the `RevertServerSnapshot` operationId).
+func (c *ClientWithResponses) RevertServerSnapshotWithResponse(ctx context.Context, serverId openapi_types.UUID, snapshotId int, body RevertServerSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*RevertServerSnapshotResponse, error) {
+	rsp, err := c.RevertServerSnapshot(ctx, serverId, snapshotId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevertServerSnapshotResponse(rsp)
+}
+
 // DeleteSshKeyWithResponse Delete Ssh Key
 //
 // Servers created with this key keep it.
@@ -45438,6 +48232,9 @@ func (c *ClientWithResponses) DeleteVolumeWithResponse(ctx context.Context, volu
 
 // ListVolumeBackupsWithResponse List Volume Backups
 //
+// A volume's backups, newest first: the ones taken on request and the
+// ones taken every night, read from the engine.
+//
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /v1/volumes/{volume_id}/backups (the `ListVolumeBackups` operationId).
@@ -45451,7 +48248,8 @@ func (c *ClientWithResponses) ListVolumeBackupsWithResponse(ctx context.Context,
 
 // CreateVolumeBackupWithResponse Create Volume Backup
 //
-// Snapshots the volume now. Volumes are backed up only on request.
+// Backs the volume up now (backup.create). It is kept for 30 days. The
+// engine also backs up every attached volume each night.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -48030,6 +50828,86 @@ func ParseReadComposeResponse(rsp *http.Response) (*ReadComposeResponse, error) 
 	return response, nil
 }
 
+// ParseGetEnvironmentFirewallResponse parses an HTTP response from a GetEnvironmentFirewallWithResponse call
+func ParseGetEnvironmentFirewallResponse(rsp *http.Response) (*GetEnvironmentFirewallResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEnvironmentFirewallResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FirewallOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReplaceEnvironmentFirewallResponse parses an HTTP response from a ReplaceEnvironmentFirewallWithResponse call
+func ParseReplaceEnvironmentFirewallResponse(rsp *http.Response) (*ReplaceEnvironmentFirewallResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplaceEnvironmentFirewallResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FirewallOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePlanTemplateResponse parses an HTTP response from a PlanTemplateWithResponse call
 func ParsePlanTemplateResponse(rsp *http.Response) (*PlanTemplateResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -48442,6 +51320,46 @@ func ParseListGithubBranchesResponse(rsp *http.Response) (*ListGithubBranchesRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []BranchOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDetectGithubSettingsResponse parses an HTTP response from a DetectGithubSettingsWithResponse call
+func ParseDetectGithubSettingsResponse(rsp *http.Response) (*DetectGithubSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DetectGithubSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Detection
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -49338,6 +52256,46 @@ func ParseRevokeMySessionResponse(rsp *http.Response) (*RevokeMySessionResponse,
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAcceptTermsResponse parses an HTTP response from a AcceptTermsWithResponse call
+func ParseAcceptTermsResponse(rsp *http.Response) (*AcceptTermsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcceptTermsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TermsStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorEnvelope
@@ -52794,6 +55752,86 @@ func ParseCreateDatabaseBackupResponse(rsp *http.Response) (*CreateDatabaseBacku
 	return response, nil
 }
 
+// ParsePlanDeclaredServicesResponse parses an HTTP response from a PlanDeclaredServicesWithResponse call
+func ParsePlanDeclaredServicesResponse(rsp *http.Response) (*PlanDeclaredServicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PlanDeclaredServicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ChangesetOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeclaredServicesResponse parses an HTTP response from a DeclaredServicesWithResponse call
+func ParseDeclaredServicesResponse(rsp *http.Response) (*DeclaredServicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeclaredServicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ConfigServicesOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListConnectionStringsResponse parses an HTTP response from a ListConnectionStringsWithResponse call
 func ParseListConnectionStringsResponse(rsp *http.Response) (*ListConnectionStringsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -53966,6 +57004,318 @@ func ParseResizeServerResponse(rsp *http.Response) (*ResizeServerResponse, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
 		var dest ServerOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetServerRootPasswordResponse parses an HTTP response from a SetServerRootPasswordWithResponse call
+func ParseSetServerRootPasswordResponse(rsp *http.Response) (*SetServerRootPasswordResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetServerRootPasswordResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSwitchServerShellOffResponse parses an HTTP response from a SwitchServerShellOffWithResponse call
+func ParseSwitchServerShellOffResponse(rsp *http.Response) (*SwitchServerShellOffResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SwitchServerShellOffResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSwitchServerShellOnResponse parses an HTTP response from a SwitchServerShellOnWithResponse call
+func ParseSwitchServerShellOnResponse(rsp *http.Response) (*SwitchServerShellOnResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SwitchServerShellOnResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServerShellOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListServerSnapshotsResponse parses an HTTP response from a ListServerSnapshotsWithResponse call
+func ParseListServerSnapshotsResponse(rsp *http.Response) (*ListServerSnapshotsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListServerSnapshotsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SnapshotsOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateServerSnapshotResponse parses an HTTP response from a CreateServerSnapshotWithResponse call
+func ParseCreateServerSnapshotResponse(rsp *http.Response) (*CreateServerSnapshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateServerSnapshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest SnapshotsOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetServerSnapshotScheduleResponse parses an HTTP response from a SetServerSnapshotScheduleWithResponse call
+func ParseSetServerSnapshotScheduleResponse(rsp *http.Response) (*SetServerSnapshotScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetServerSnapshotScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SnapshotsOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteServerSnapshotResponse parses an HTTP response from a DeleteServerSnapshotWithResponse call
+func ParseDeleteServerSnapshotResponse(rsp *http.Response) (*DeleteServerSnapshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteServerSnapshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest SnapshotsOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevertServerSnapshotResponse parses an HTTP response from a RevertServerSnapshotWithResponse call
+func ParseRevertServerSnapshotResponse(rsp *http.Response) (*RevertServerSnapshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevertServerSnapshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest SnapshotsOut
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
