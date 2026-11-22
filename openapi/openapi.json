@@ -104,7 +104,7 @@
           "auth"
         ],
         "summary": "Get Csrf Token",
-        "description": "Returns the CSRF token and sets the `dekka_csrf` cookie if needed. Send\nthe token as `X-CSRF-Token` on every mutating request.",
+        "description": "Returns the CSRF token and sets the CSRF cookie if needed (`__Host-dekka_csrf`\nin production). Send the token as `X-CSRF-Token` on every mutating request.",
         "operationId": "get_csrf_token",
         "responses": {
           "200": {
@@ -507,6 +507,58 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/terms": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Accept Terms",
+        "description": "Accept the current terms of use. A person does this in the dashboard, so an API key can't.",
+        "operationId": "accept_terms",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptTermsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermsStatus"
                 }
               }
             }
@@ -2805,6 +2857,122 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EnvironmentOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/environments/{environment_id}/firewall": {
+      "get": {
+        "tags": [
+          "environments"
+        ],
+        "summary": "Get Environment Firewall",
+        "description": "The inbound rules on the environment's private network, which its KVM\nservers share. An environment gets the network with its first such server.",
+        "operationId": "get_environment_firewall",
+        "parameters": [
+          {
+            "name": "environment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Environment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirewallOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "environments"
+        ],
+        "summary": "Replace Environment Firewall",
+        "description": "Replaces every rule at once. The host takes the new rules within\nseconds. They judge new connections, and a connection that is already\nopen is not cut.",
+        "operationId": "replace_environment_firewall",
+        "parameters": [
+          {
+            "name": "environment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Environment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceFirewallRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirewallOut"
                 }
               }
             }
@@ -5439,6 +5607,114 @@
         }
       }
     },
+    "/v1/resources/{resource_id}/config/services": {
+      "get": {
+        "tags": [
+          "blueprints"
+        ],
+        "summary": "Declared Services",
+        "description": "The databases, caches, buckets and queues the service's dekka.toml (or\ndekka.json) declares under [services.<name>], read at its latest deployed\ncommit, and whether each exists in the environment and is connected.",
+        "operationId": "declared_services",
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Resource Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigServicesOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/resources/{resource_id}/config/plan": {
+      "post": {
+        "tags": [
+          "blueprints"
+        ],
+        "summary": "Plan Declared Services",
+        "description": "Plans what the service's dekka.toml declares and the environment lacks:\nthe missing databases, caches, buckets and queues, and a connection from\nthe service to each declared one. Nothing changes until the changeset is\ndeployed with POST /v1/changesets/{id}/deploy. Answers 409 nothing_to_plan\nwhen everything is already here and connected.",
+        "operationId": "plan_declared_services",
+        "parameters": [
+          {
+            "name": "resource_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Resource Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangesetOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/domains/availability": {
       "get": {
         "tags": [
@@ -6600,6 +6876,478 @@
         }
       }
     },
+    "/v1/servers/{server_id}/snapshots": {
+      "get": {
+        "tags": [
+          "servers"
+        ],
+        "summary": "List Server Snapshots",
+        "description": "A KVM server's disk snapshots and whether one is taken each night. A\nsnapshot lives on the same host as the disk: it undoes a change in\nseconds and is not a backup. A server that takes none answers with an\nempty list.",
+        "operationId": "list_server_snapshots",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotsOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "servers"
+        ],
+        "summary": "Create Server Snapshot",
+        "description": "Takes a snapshot of the disk, with the server running or stopped. A server holds at most ten.",
+        "operationId": "create_server_snapshot",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSnapshotRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotsOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/servers/{server_id}/snapshots/schedule": {
+      "put": {
+        "tags": [
+          "servers"
+        ],
+        "summary": "Set Server Snapshot Schedule",
+        "description": "Turns the nightly snapshot on or off. The newest `keep` nightly\nsnapshots are kept, and the ones people took are left alone.",
+        "operationId": "set_server_snapshot_schedule",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotScheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotsOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/servers/{server_id}/snapshots/{snapshot_id}/revert": {
+      "post": {
+        "tags": [
+          "servers"
+        ],
+        "summary": "Revert Server Snapshot",
+        "description": "Puts the disk back as the snapshot holds it. The server has to be\nstopped, what was written since is lost, and `confirm` must be the\nserver's name.",
+        "operationId": "revert_server_snapshot",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "snapshot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Snapshot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevertSnapshotRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotsOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/servers/{server_id}/snapshots/{snapshot_id}": {
+      "delete": {
+        "tags": [
+          "servers"
+        ],
+        "summary": "Delete Server Snapshot",
+        "description": "Deletes one snapshot. The disk as it is now is not touched.",
+        "operationId": "delete_server_snapshot",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "snapshot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Snapshot Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotsOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/servers/{server_id}/root-password": {
+      "put": {
+        "tags": [
+          "servers"
+        ],
+        "summary": "Set Server Root Password",
+        "description": "Sets root's password on a KVM server. It takes effect the next time the\nserver is started after being stopped, and is asked for on the server's\nconsole and nowhere else, since SSH takes keys only. The password is\nhashed here and is never stored or logged. Like the console it opens,\nthis takes a signed-in person and not an API key.",
+        "operationId": "set_server_root_password",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RootPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/servers/{server_id}/shell": {
+      "put": {
+        "tags": [
+          "servers"
+        ],
+        "summary": "Switch Server Shell On",
+        "description": "Switches the shell on for a KVM server: a terminal from its page,\nsigned in as root with a certificate that is signed for the one session\nand lasts two minutes, so no key or password of the customer's is used.\nA server created with the shell on trusts it already. One that was not\nis given a command here to run once as root. Asking again answers the\nsame command and changes nothing. Like the shell it opens, this takes a\nsigned-in person and not an API key.",
+        "operationId": "switch_server_shell_on",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerShellOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "servers"
+        ],
+        "summary": "Switch Server Shell Off",
+        "description": "Switches the shell off. The key that signs for the server is deleted\nand any shell open on it ends, so nothing can sign in that way until it\nis switched on again, which makes a new key.",
+        "operationId": "switch_server_shell_off",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/catalog/gpu-instances": {
       "get": {
         "tags": [
@@ -7098,7 +7846,7 @@
           "backups"
         ],
         "summary": "List Database Backups",
-        "description": "A Postgres database's backups, newest first: the ones taken on request\nand the ones its daily schedule takes, read from the engine. Each says\nwhere it is kept.",
+        "description": "A Postgres database's or a Redis cache's backups, newest first: the\nones taken on request and the ones taken every night, read from the\nengine. Each says where it is kept.",
         "operationId": "list_database_backups",
         "parameters": [
           {
@@ -7166,7 +7914,7 @@
           "backups"
         ],
         "summary": "Create Database Backup",
-        "description": "Takes a manual backup now (backup.create). It is kept for 30 days.",
+        "description": "Takes a manual backup of a database or a cache now (backup.create). It\nis kept for 30 days.",
         "operationId": "create_database_backup",
         "parameters": [
           {
@@ -7284,6 +8032,7 @@
           "backups"
         ],
         "summary": "List Volume Backups",
+        "description": "A volume's backups, newest first: the ones taken on request and the\nones taken every night, read from the engine.",
         "operationId": "list_volume_backups",
         "parameters": [
           {
@@ -7351,7 +8100,7 @@
           "backups"
         ],
         "summary": "Create Volume Backup",
-        "description": "Snapshots the volume now. Volumes are backed up only on request.",
+        "description": "Backs the volume up now (backup.create). It is kept for 30 days. The\nengine also backs up every attached volume each night.",
         "operationId": "create_volume_backup",
         "parameters": [
           {
@@ -7458,7 +8207,7 @@
           "backups"
         ],
         "summary": "Restore Backup",
-        "description": "Restores a completed backup over the current data (backup.restore).\n`confirm` must be the database's name, or the volume's service's name;\notherwise it answers 422 confirmation_required. For a database,\n`target_time` restores to that moment instead of to the backup as taken.\nReturns the operation.",
+        "description": "Restores a completed backup over the current data (backup.restore).\n`confirm` must be the database's or the cache's name, or the volume's\nservice's name; otherwise it answers 422 confirmation_required. A cache\nor a volume's service is stopped while its backup is put back. For a\nPostgres database, `target_time` restores to that moment instead of to\nthe backup as taken. Returns the operation.",
         "operationId": "restore_backup",
         "parameters": [
           {
@@ -8186,7 +8935,7 @@
           "databases"
         ],
         "summary": "Rotate Database Credentials",
-        "description": "Issues new credentials for every active connection to this database.\nEach connection goes active, pending, active: the engine rotates\n(connection.configure with rotate: true), Dekka rebinds the app's\nvariable and restarts it. With no active connection it answers 409\nno_connections.",
+        "description": "Issues new credentials for every active connection to this database,\ncache, bucket or queue. Each connection goes active, pending, active: the\nengine rotates (connection.configure with rotate: true) and revokes the old\ncredential, and Dekka rebinds the app's variables and restarts it. With no\nactive connection it answers 409 no_connections.",
         "operationId": "rotate_database_credentials",
         "parameters": [
           {
@@ -9940,6 +10689,90 @@
                     "$ref": "#/components/schemas/BranchOut"
                   },
                   "title": "Response List Github Branches"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/github/installations/{installation_id}/repos/{repo_id}/detect": {
+      "get": {
+        "tags": [
+          "github"
+        ],
+        "summary": "Detect Github Settings",
+        "description": "How Dekka would build and run this branch, from the files at its root: the\nframework, build strategy, port, start command and health path, plus any\nCompose file or dekka.toml found. Nothing is run; the files are only read.",
+        "operationId": "detect_github_settings",
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Installation Id"
+            }
+          },
+          {
+            "name": "repo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Repo Id"
+            }
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "title": "Branch"
+            }
+          },
+          {
+            "name": "root_dir",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "default": "/",
+              "title": "Root Dir"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Detection"
                 }
               }
             }
@@ -13675,6 +14508,21 @@
         ],
         "title": "AcceptInvitationRequest"
       },
+      "AcceptTermsRequest": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Version",
+            "description": "The version the person was shown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "AcceptTermsRequest"
+      },
       "Accepted": {
         "properties": {
           "ok": {
@@ -15168,6 +16016,11 @@
           "secret": {
             "type": "boolean",
             "title": "Secret"
+          },
+          "optional": {
+            "type": "boolean",
+            "title": "Optional",
+            "default": false
           }
         },
         "type": "object",
@@ -16492,6 +17345,53 @@
         ],
         "title": "ComposeTranslation"
       },
+      "ConfigServicesOut": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File",
+            "description": "dekka.toml or dekka.json, or null when the commit has neither"
+          },
+          "commit_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Sha"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/DeclaredServiceOut"
+            },
+            "type": "array",
+            "title": "Services"
+          },
+          "plan_needed": {
+            "type": "boolean",
+            "title": "Plan Needed",
+            "description": "Whether something declared is missing or not connected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "commit_sha",
+          "services",
+          "plan_needed"
+        ],
+        "title": "ConfigServicesOut"
+      },
       "ConnectionOut": {
         "properties": {
           "id": {
@@ -17108,7 +18008,8 @@
             "type": "string",
             "enum": [
               "firecracker-linux-v1",
-              "gvisor-system-linux-v1"
+              "gvisor-system-linux-v1",
+              "kvm-linux-v1"
             ],
             "title": "Runtime Profile",
             "description": "The runtime profile the server runs under, fixed after creation. The size and image must belong to it.",
@@ -17163,6 +18064,12 @@
             "title": "User Data",
             "description": "First-boot user data, up to 32 KiB. Stored encrypted and never returned."
           },
+          "shell": {
+            "type": "boolean",
+            "title": "Shell",
+            "description": "Whether the server opens as a terminal from its page, signed in as root. Only a kvm-linux-v1 server has one, and it can be switched on and off afterwards.",
+            "default": true
+          },
           "environment_id": {
             "anyOf": [
               {
@@ -17197,6 +18104,23 @@
           "ssh_key_ids"
         ],
         "title": "CreateServerRequest"
+      },
+      "CreateSnapshotRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f\"\\\\$]+$",
+            "title": "Name",
+            "description": "One line, without quotes, backslashes or dollar signs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateSnapshotRequest"
       },
       "CreateSshKeyRequest": {
         "properties": {
@@ -17550,6 +18474,46 @@
           "day"
         ],
         "title": "DayMetrics"
+      },
+      "DeclaredServiceOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "exists": {
+            "type": "boolean",
+            "title": "Exists"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "exists",
+          "connected"
+        ],
+        "title": "DeclaredServiceOut",
+        "description": "A database, cache, bucket or queue a service's dekka.toml declares."
       },
       "DeliveryOut": {
         "properties": {
@@ -18168,6 +19132,131 @@
           "preview"
         ],
         "title": "DeploymentTrigger"
+      },
+      "Detection": {
+        "properties": {
+          "framework": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Framework"
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "build_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Command"
+          },
+          "start_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Command"
+          },
+          "health_check_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health Check Path"
+          },
+          "static_publish_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Static Publish Dir"
+          },
+          "dockerfile_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dockerfile Path"
+          },
+          "compose_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compose File"
+          },
+          "config_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config File"
+          },
+          "found": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Found",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "Detection",
+        "description": "What the branch looks like and the settings Dekka would start from."
       },
       "DnsRecordOut": {
         "properties": {
@@ -19157,6 +20246,122 @@
         },
         "type": "object",
         "title": "Features"
+      },
+      "FirewallOut": {
+        "properties": {
+          "has_network": {
+            "type": "boolean",
+            "title": "Has Network",
+            "description": "False until the environment has its first KVM server, which is when it gets a private network"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range",
+            "description": "The private network's range, such as 10.64.0.0/16"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/FirewallRule"
+            },
+            "type": "array",
+            "title": "Rules"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "has_network",
+          "range",
+          "rules",
+          "revision"
+        ],
+        "title": "FirewallOut"
+      },
+      "FirewallRule": {
+        "properties": {
+          "priority": {
+            "type": "integer",
+            "maximum": 65534.0,
+            "minimum": 1.0,
+            "title": "Priority"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny"
+            ],
+            "title": "Action"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 43,
+            "minLength": 1,
+            "title": "Source",
+            "description": "`vpc` for the network's own servers, `any`, or an IPv4 prefix such as 203.0.113.0/24"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 43
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target",
+            "description": "An IPv4 prefix inside the network, such as one server's private address with /32. Leave it out for every server"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "tcp",
+                  "udp",
+                  "icmp"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol",
+            "description": "Leave it out for every protocol"
+          },
+          "ports": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 11
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ports",
+            "description": "One port or a range such as 8000-8100, for tcp and udp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "priority",
+          "action",
+          "source"
+        ],
+        "title": "FirewallRule",
+        "description": "One inbound rule on an environment's private network. The rule with the\nlowest priority that matches a new connection decides it, and a connection\nthat no rule matches is dropped."
       },
       "GitHubSource": {
         "properties": {
@@ -20748,6 +21953,9 @@
           "engine": {
             "$ref": "#/components/schemas/EngineInfo"
           },
+          "terms": {
+            "$ref": "#/components/schemas/TermsStatus"
+          },
           "has_passkey": {
             "type": "boolean",
             "title": "Has Passkey"
@@ -20772,6 +21980,7 @@
           "organizations",
           "features",
           "engine",
+          "terms",
           "has_passkey",
           "sign_in_methods"
         ],
@@ -23747,6 +24956,23 @@
         ],
         "title": "RegistryCredentialOut"
       },
+      "ReplaceFirewallRequest": {
+        "properties": {
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/FirewallRule"
+            },
+            "type": "array",
+            "maxItems": 64,
+            "title": "Rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rules"
+        ],
+        "title": "ReplaceFirewallRequest"
+      },
       "RepoOut": {
         "properties": {
           "id": {
@@ -24253,6 +25479,20 @@
         ],
         "title": "RevealedEnvVar"
       },
+      "RevertSnapshotRequest": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "description": "The server's name, since what was written after the snapshot is lost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirm"
+        ],
+        "title": "RevertSnapshotRequest"
+      },
       "Role": {
         "type": "string",
         "enum": [
@@ -24274,6 +25514,22 @@
         },
         "type": "object",
         "title": "RollbackRequest"
+      },
+      "RootPasswordRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 12,
+            "title": "Password",
+            "description": "Root's new password. It is hashed before it leaves the API and is never stored."
+          }
+        },
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "RootPasswordRequest"
       },
       "RotateOut": {
         "properties": {
@@ -24452,7 +25708,7 @@
           "isolation": {
             "type": "string",
             "title": "Isolation",
-            "description": "firecracker-kvm or gvisor-systrap"
+            "description": "firecracker-kvm, gvisor-systrap or kvm"
           },
           "product_name": {
             "type": "string",
@@ -24641,7 +25897,7 @@
           "isolation": {
             "type": "string",
             "title": "Isolation",
-            "description": "firecracker-kvm or gvisor-systrap"
+            "description": "firecracker-kvm, gvisor-systrap or kvm"
           },
           "state": {
             "$ref": "#/components/schemas/ServerState"
@@ -24688,6 +25944,18 @@
             ],
             "title": "Ipv6"
           },
+          "private_ipv4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Private Ipv4",
+            "description": "The server's address on its environment's private network, when it has one"
+          },
           "hostname": {
             "type": "string",
             "title": "Hostname"
@@ -24715,6 +25983,11 @@
             },
             "type": "array",
             "title": "Ssh Key Fingerprints"
+          },
+          "shell": {
+            "type": "boolean",
+            "title": "Shell",
+            "description": "Whether the server's shell is switched on"
           },
           "status_reason": {
             "anyOf": [
@@ -24762,11 +26035,26 @@
           "booted_at",
           "hourly_price_minor",
           "ssh_key_fingerprints",
+          "shell",
           "status_reason",
           "active_operation",
           "created_at"
         ],
         "title": "ServerOut"
+      },
+      "ServerShellOut": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "title": "Command",
+            "description": "What to run once as root on a server that was made without the shell, or that had it switched off and on again. A server made with the shell on needs nothing."
+          }
+        },
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "title": "ServerShellOut"
       },
       "ServerSizeOut": {
         "properties": {
@@ -24829,6 +26117,11 @@
             "type": "string",
             "title": "Currency"
           },
+          "offered": {
+            "type": "boolean",
+            "title": "Offered",
+            "description": "Whether the size is still sold. One that is not stays in the catalogue because servers have it, and it can no longer be chosen for a new server or a resize."
+          },
           "available": {
             "type": "boolean",
             "title": "Available",
@@ -24847,6 +26140,7 @@
           "monthly_price",
           "hourly_price",
           "currency",
+          "offered",
           "available"
         ],
         "title": "ServerSizeOut"
@@ -25403,6 +26697,103 @@
         "type": "object",
         "title": "SimulatePushRequest"
       },
+      "SnapshotOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "size_mib": {
+            "type": "integer",
+            "title": "Size Mib",
+            "description": "The size of the disk it holds"
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current",
+            "description": "True for the snapshot the disk was last taken from or put back to"
+          },
+          "nightly": {
+            "type": "boolean",
+            "title": "Nightly",
+            "description": "True for one the nightly schedule took"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "size_mib",
+          "current",
+          "nightly"
+        ],
+        "title": "SnapshotOut"
+      },
+      "SnapshotScheduleRequest": {
+        "properties": {
+          "nightly": {
+            "type": "boolean",
+            "title": "Nightly"
+          },
+          "keep": {
+            "type": "integer",
+            "maximum": 7.0,
+            "minimum": 1.0,
+            "title": "Keep",
+            "default": 7
+          }
+        },
+        "type": "object",
+        "required": [
+          "nightly"
+        ],
+        "title": "SnapshotScheduleRequest"
+      },
+      "SnapshotsOut": {
+        "properties": {
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotOut"
+            },
+            "type": "array",
+            "title": "Snapshots"
+          },
+          "nightly": {
+            "type": "boolean",
+            "title": "Nightly",
+            "description": "Whether a snapshot is taken each night"
+          },
+          "keep": {
+            "type": "integer",
+            "title": "Keep",
+            "description": "How many nightly snapshots are kept"
+          },
+          "busy": {
+            "type": "boolean",
+            "title": "Busy",
+            "description": "True while a snapshot is being taken, deleted or put back"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshots",
+          "nightly",
+          "keep",
+          "busy"
+        ],
+        "title": "SnapshotsOut",
+        "description": "A server's disk snapshots, oldest first. A snapshot is kept on the same\nhost as the disk, so it undoes a change and is not a backup."
+      },
       "SpeechIn": {
         "properties": {
           "model": {
@@ -25589,6 +26980,11 @@
             "title": "Fingerprint",
             "description": "SHA256:<base64>, as `ssh-keygen -l` prints it"
           },
+          "public_key": {
+            "type": "string",
+            "title": "Public Key",
+            "description": "The key on one line, as it goes into authorized_keys"
+          },
           "key_type": {
             "type": "string",
             "title": "Key Type"
@@ -25615,6 +27011,7 @@
           "id",
           "name",
           "fingerprint",
+          "public_key",
           "key_type",
           "comment",
           "created_at"
@@ -26019,6 +27416,18 @@
             "type": "boolean",
             "title": "Billing Enabled",
             "description": "False in production when no payment provider is configured"
+          },
+          "billing_exempt": {
+            "type": "boolean",
+            "title": "Billing Exempt",
+            "description": "True when Dekka has set this plan for testing, so nothing is invoiced or charged",
+            "default": false
+          },
+          "limits_waived": {
+            "type": "boolean",
+            "title": "Limits Waived",
+            "description": "True when Dekka has lifted this plan's limits for testing",
+            "default": false
           }
         },
         "type": "object",
@@ -26477,6 +27886,40 @@
           "resources"
         ],
         "title": "TemplateSummary"
+      },
+      "TermsStatus": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "The current terms, named by the day they last changed"
+          },
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At",
+            "description": "When this account accepted that version, or null"
+          },
+          "enforced": {
+            "type": "boolean",
+            "title": "Enforced",
+            "description": "Whether an account that has not accepted is refused anything that changes state"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "accepted_at",
+          "enforced"
+        ],
+        "title": "TermsStatus"
       },
       "TicketIn": {
         "properties": {
@@ -27033,10 +28476,11 @@
             "type": "string",
             "enum": [
               "firecracker-linux-v1",
-              "gvisor-system-linux-v1"
+              "gvisor-system-linux-v1",
+              "kvm-linux-v1"
             ],
             "title": "Runtime Profile",
-            "description": "firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization. The size and image must belong to it, and it is fixed after creation.",
+            "description": "firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization; kvm-linux-v1 runs it as a full KVM virtual machine on its environment's private network. The size and image must belong to it, and it is fixed after creation.",
             "default": "firecracker-linux-v1"
           },
           "size_id": {
@@ -27089,6 +28533,12 @@
             ],
             "title": "User Data",
             "description": "First-boot user data, up to 32 KiB, on create only. Stored encrypted."
+          },
+          "shell": {
+            "type": "boolean",
+            "title": "Shell",
+            "description": "Whether the server opens as a terminal from its page, signed in as root. Only a kvm-linux-v1 server has one, and it can be switched on and off afterwards.",
+            "default": true
           }
         },
         "additionalProperties": false,
