@@ -7,7 +7,7 @@
 On macOS and Linux the install script downloads the latest release, checks it against the release's `checksums.txt`, and puts `dekka` in `/usr/local/bin`, or in `~/.local/bin` when that directory isn't writable.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/dekka-cloud/dekka-cli/main/install.sh | sh
+curl -fsSL https://dekka.cloud/install.sh | sh
 ```
 
 Set `DEKKA_VERSION` to install a particular release, such as `v0.1.0`, and `DEKKA_INSTALL_DIR` to choose the directory. The [releases page](https://github.com/dekka-cloud/dekka-cli/releases) has archives for macOS, Linux and Windows on amd64 and arm64, each with an SBOM, and a checksums file signed with Sigstore.
@@ -20,18 +20,24 @@ go install github.com/dekka-cloud/dekka-cli/cmd/dekka@latest
 
 ## Sign in
 
-Create an API key in the dashboard at [dekka.cloud/app](https://dekka.cloud/app) under **Settings**, then **API keys**, and run `dekka login` to paste it. The CLI checks the key with the API and saves it in the system keychain, which is the Keychain on macOS, the Secret Service on Linux and the Credential Manager on Windows. On a machine with no keychain, such as a server without a desktop session, it saves the key in `dekka/credentials.json` under your user config directory with permissions that let only you read it, and tells you it has done so.
+Run `dekka login`. It prints a short code and opens the dashboard, where you check that the page shows the same code and approve the sign-in for one of your organisations. The CLI then saves an API key of its own in the system keychain, which is the Keychain on macOS, the Secret Service on Linux and the Credential Manager on Windows. On a machine with no keychain, such as a server without a desktop session, it saves the key in `dekka/credentials.json` under your user config directory with permissions that let only you read it, and tells you it has done so.
 
-`dekka login` also reads the key from standard input, which keeps it out of your shell history, and `--token` passes it as an argument.
+```sh
+dekka login
+dekka whoami
+```
+
+The key is listed in the dashboard under **Settings**, then **API keys**, as "Dekka CLI on" followed by the machine's name, and revoking it there signs that machine out. Approving a sign-in makes a key, so it needs the owner or admin role in the organisation. On a machine with no browser, such as a server you reach over SSH, `dekka login --no-browser` prints the link, and you open it on another device.
+
+To use a key you created yourself, pass it on standard input, which keeps it out of your shell history, or paste it with `dekka login --with-key`. `--token` passes it as an argument.
 
 ```sh
 dekka login < dekka-key.txt
-dekka whoami
 ```
 
 `dekka whoami` shows who the key acts for and which organisation it belongs to. `dekka logout` removes the saved key from this machine, and the key stays valid until you revoke it in the dashboard.
 
-In CI, set `DEKKA_TOKEN` to the key instead of running `dekka login`, because it takes precedence over a saved key. `DEKKA_API_URL` points the CLI at a different Dekka API, which is only useful when you work on Dekka itself.
+In CI, set `DEKKA_TOKEN` to a key from the dashboard instead of running `dekka login`, because it takes precedence over a saved key. `DEKKA_API_URL` points the CLI at a different Dekka API, which is only useful when you work on Dekka itself.
 
 ## Commands
 

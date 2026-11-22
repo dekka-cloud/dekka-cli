@@ -16,12 +16,16 @@ import (
 
 func (a *App) loginCmd() *cobra.Command {
 	var token string
+	var withKey, noBrowser bool
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Save an API key for the commands to use",
-		Long: "login reads an API key from the terminal, standard input or --token, checks it with the API, and saves it\n" +
-			"in the system keychain. Create the key in the dashboard at " + DashboardURL + " under Settings, API keys.\n\n" +
-			"Passing the key on standard input keeps it out of your shell history:\n\n" +
+		Short: "Sign this machine in to Dekka",
+		Long: "login signs this machine in through your browser. It prints a short code and opens the dashboard, where you\n" +
+			"check the code and approve it, and it then saves an API key of its own in the system keychain. The key is\n" +
+			"listed in the dashboard under Settings, API keys, and revoking it there signs this machine out.\n\n" +
+			"On a machine with no browser, pass --no-browser and open the link it prints on another device.\n\n" +
+			"To use a key you made yourself, pass it on standard input, which keeps it out of your shell history, or\n" +
+			"paste it with --with-key:\n\n" +
 			"  dekka login < key.txt",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -30,8 +34,14 @@ func (a *App) loginCmd() *cobra.Command {
 				return err
 			}
 			key := strings.TrimSpace(token)
-			if key == "" {
+			switch {
+			case key != "":
+			case withKey || !a.StdinIsTerminal():
 				if key, err = a.readKey(); err != nil {
+					return err
+				}
+			default:
+				if key, err = a.browserLogin(cmd.Context(), apiURL, !noBrowser); err != nil {
 					return err
 				}
 			}
@@ -67,7 +77,9 @@ func (a *App) loginCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&token, "token", "", "the API key, instead of reading it from standard input")
+	cmd.Flags().StringVar(&token, "token", "", "an API key to save, instead of signing in through the browser")
+	cmd.Flags().BoolVar(&withKey, "with-key", false, "paste an API key instead of signing in through the browser")
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "print the sign-in link instead of opening it")
 	return cmd
 }
 

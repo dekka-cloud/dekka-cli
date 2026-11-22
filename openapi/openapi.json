@@ -2045,6 +2045,279 @@
         }
       }
     },
+    "/v1/cli/logins": {
+      "post": {
+        "tags": [
+          "cli"
+        ],
+        "summary": "Start Cli Login",
+        "description": "Start signing the CLI in. Needs no credentials. Show the person\n`user_code` and `verification_url`, then ask `POST /cli/logins/token`\nevery `interval` seconds until it answers with the key.",
+        "operationId": "start_cli_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartCliLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliLoginStarted"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cli/logins/token": {
+      "post": {
+        "tags": [
+          "cli"
+        ],
+        "summary": "Collect Cli Login",
+        "description": "Collect the key once the person has approved. Until then this answers\n400 with the code `authorization_pending`, and the CLI asks again. It\nanswers `access_denied` if they refused and `expired_token` once the\nattempt is over or the key has been collected.",
+        "operationId": "collect_cli_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectCliLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliLoginKey"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cli/logins/{user_code}": {
+      "get": {
+        "tags": [
+          "cli"
+        ],
+        "summary": "Get Cli Login",
+        "description": "What the dashboard shows before a sign-in is approved: the machine that\nasked, when, and whether the attempt is still open.",
+        "operationId": "get_cli_login",
+        "parameters": [
+          {
+            "name": "user_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliLoginOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cli/logins/{user_code}/approve": {
+      "post": {
+        "tags": [
+          "cli"
+        ],
+        "summary": "Approve Cli Login",
+        "description": "Approve a sign-in for one organisation, which needs the admin role\nthere, as creating a key does. It mints a key with the read and write\nscopes, named after the machine.",
+        "operationId": "approve_cli_login",
+        "parameters": [
+          {
+            "name": "user_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Code"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveCliLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliLoginOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cli/logins/{user_code}/deny": {
+      "post": {
+        "tags": [
+          "cli"
+        ],
+        "summary": "Deny Cli Login",
+        "description": "Refuse a sign-in, so the CLI that asked stops waiting.",
+        "operationId": "deny_cli_login",
+        "parameters": [
+          {
+            "name": "user_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliLoginOut"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/catalog/plans": {
       "get": {
         "tags": [
@@ -15600,6 +15873,20 @@
         ],
         "title": "ApplicationSpec"
       },
+      "ApproveCliLoginRequest": {
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id"
+        ],
+        "title": "ApproveCliLoginRequest"
+      },
       "AuthResponse": {
         "properties": {
           "user": {
@@ -17073,6 +17360,143 @@
           "completed_at"
         ],
         "title": "CheckoutOut"
+      },
+      "CliLoginKey": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "The API key the CLI saves. It is given once."
+          },
+          "organization": {
+            "$ref": "#/components/schemas/CliLoginOrganization"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "organization"
+        ],
+        "title": "CliLoginKey"
+      },
+      "CliLoginOrganization": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ],
+        "title": "CliLoginOrganization"
+      },
+      "CliLoginOut": {
+        "properties": {
+          "user_code": {
+            "type": "string",
+            "title": "User Code"
+          },
+          "device_name": {
+            "type": "string",
+            "title": "Device Name"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "denied",
+              "expired"
+            ],
+            "title": "State"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_code",
+          "device_name",
+          "requested_at",
+          "expires_at",
+          "state"
+        ],
+        "title": "CliLoginOut",
+        "description": "An attempt as the person approving sees it."
+      },
+      "CliLoginStarted": {
+        "properties": {
+          "device_code": {
+            "type": "string",
+            "title": "Device Code",
+            "description": "The CLI's secret for collecting the key. It is shown only in this response."
+          },
+          "user_code": {
+            "type": "string",
+            "title": "User Code",
+            "description": "The short code the person confirms in the dashboard, such as BCDF-GHJK"
+          },
+          "verification_url": {
+            "type": "string",
+            "title": "Verification Url",
+            "description": "Where the person approves, with the code already filled in"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Seconds until the attempt can no longer be approved or collected"
+          },
+          "interval": {
+            "type": "integer",
+            "title": "Interval",
+            "description": "Seconds the CLI should wait between asks for the key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_code",
+          "user_code",
+          "verification_url",
+          "expires_in",
+          "interval"
+        ],
+        "title": "CliLoginStarted"
+      },
+      "CollectCliLoginRequest": {
+        "properties": {
+          "device_code": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Device Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_code"
+        ],
+        "title": "CollectCliLoginRequest"
       },
       "ComposeFileTranslation": {
         "properties": {
@@ -27220,6 +27644,19 @@
           "plan_id"
         ],
         "title": "StartCheckoutRequest"
+      },
+      "StartCliLoginRequest": {
+        "properties": {
+          "device_name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Device Name",
+            "description": "What to call this machine on the approval page and in the key's name, usually its hostname",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "StartCliLoginRequest"
       },
       "StoppedRule": {
         "properties": {

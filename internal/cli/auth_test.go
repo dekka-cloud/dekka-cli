@@ -2,8 +2,10 @@ package cli
 
 import (
 	"errors"
+	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/zalando/go-keyring"
@@ -30,14 +32,14 @@ func TestLoginReadsTheKeyFromStdinAndSavesItInTheKeychain(t *testing.T) {
 	}
 }
 
-func TestLoginOnATerminalPointsToTheDashboard(t *testing.T) {
+func TestLoginWithKeyOnATerminalPointsToTheDashboard(t *testing.T) {
 	f := newFakeAPI(t).withProject()
 	h := newHarness(t, f)
 	delete(h.env, "DEKKA_TOKEN")
 	h.terminal = true
 	h.app.ReadSecret = func() (string, error) { return testToken, nil }
 
-	if code := h.run("login"); code != 0 {
+	if code := h.run("login", "--with-key"); code != 0 {
 		t.Fatalf("exit %d: %s", code, h.err)
 	}
 	contains(t, h.err.String(), "https://dekka.cloud/app", "Settings, API keys")
@@ -160,4 +162,122 @@ func TestUnknownOutputFormat(t *testing.T) {
 	if code := h.run("whoami", "-o", "yaml"); code == 0 {
 		t.Fatal("yaml was accepted")
 	}
+}
+
+const startedJSON = `{"device_code":"device-secret","user_code":"BCDF-GHJK","verification_url":"https://dekka.cloud/cli?code=BCDF-GHJK","expires_in":600,"interval":3}`
+
+// browserSignIn serves a sign-in that is approved after the CLI has asked
+// `pending` times, and returns how many times it was asked.
+func browserSignIn(f *fakeAPI, pending int32, then func(http.ResponseWriter)) *atomic.Int32 {
+	asks := &atomic.Int32{}
+	f.json("POST /v1/cli/logins", 201, startedJSON)
+	f.mux.HandleFunc("POST /v1/cli/logins/token", func(w http.ResponseWriter, _ *http.Request) {
+		if asks.Add(1) <= pending {
+			writeJSON(w, 400, `{"error":{"code":"authorization_pending","message":"Waiting for the sign-in to be approved in the dashboard.","request_id":"req_2"}}`)
+			return
+		}
+		then(w)
+	})
+	return asks
+}
+
+func TestLoginOnATerminalSignsInThroughTheBrowser(t *testing.T) {
+	f := newFakeAPI(t).withProject()
+	asks := browserSignIn(f, 2, func(w http.ResponseWriter) {
+		writeJSON(w, 200, `{"key":"`+testToken+`","organization":{"id":"`+orgID+`","name":"Acme","slug":"acme"}}`)
+	})
+	h := newHarness(t, f)
+	delete(h.env, "DEKKA_TOKEN")
+	h.terminal = true
+	var opened string
+	h.app.OpenBrowser = func(link string) error { opened = link; return nil }
+	h.app.Hostname = func() (string, error) { return "ama-laptop", nil }
+
+	if code := h.run("login"); code != 0 {
+		t.Fatalf("exit %d: %s", code, h.err)
+	}
+	if opened != "https://dekka.cloud/cli?code=BCDF-GHJK" {
+		t.Fatalf("opened %q", opened)
+	}
+	contains(t, h.err.String(), "Your code is BCDF-GHJK.", "Your browser is opening https://dekka.cloud/cli?code=BCDF-GHJK", "Waiting for your approval.")
+	contains(t, f.body("POST /v1/cli/logins"), `"device_name":"ama-laptop"`)
+	contains(t, f.body("POST /v1/cli/logins/token"), `"device_code":"device-secret"`)
+	if asks.Load() != 3 {
+		t.Fatalf("asked for the key %d times", asks.Load())
+	}
+	contains(t, h.out.String(), "Signed in as Ama Mensah (ama@example.com) in Acme.")
+	if key, _, err := h.app.Store.Get(f.URL); err != nil || key != testToken {
+		t.Fatalf("saved key = %q (%v)", key, err)
+	}
+	// The device code is the CLI's secret, and the key is never printed.
+	for _, secret := range []string{"device-secret", testToken} {
+		if strings.Contains(h.out.String()+h.err.String(), secret) {
+			t.Fatalf("%q was printed", secret)
+		}
+	}
+}
+
+func TestLoginPrintsTheLinkWhereThereIsNoBrowser(t *testing.T) {
+	for name, arrange := range map[string]func(*harness) []string{
+		"no browser on this machine": func(h *harness) []string { h.app.OpenBrowser = nil; return []string{"login"} },
+		"the browser fails to open": func(h *harness) []string {
+			h.app.OpenBrowser = func(string) error { return errors.New("no display") }
+			return []string{"login"}
+		},
+		"--no-browser": func(h *harness) []string {
+			h.app.OpenBrowser = func(string) error { t.Error("the browser was opened"); return nil }
+			return []string{"login", "--no-browser"}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFakeAPI(t).withProject()
+			browserSignIn(f, 0, func(w http.ResponseWriter) {
+				writeJSON(w, 200, `{"key":"`+testToken+`","organization":{"id":"`+orgID+`","name":"Acme","slug":"acme"}}`)
+			})
+			h := newHarness(t, f)
+			delete(h.env, "DEKKA_TOKEN")
+			h.terminal = true
+			if code := h.run(arrange(h)...); code != 0 {
+				t.Fatalf("exit %d: %s", code, h.err)
+			}
+			contains(t, h.err.String(), "Open https://dekka.cloud/cli?code=BCDF-GHJK in a browser and approve this sign-in if it shows the same code.")
+		})
+	}
+}
+
+func TestLoginStopsWhenTheSignInIsRefusedOrExpires(t *testing.T) {
+	for code, want := range map[string]string{
+		"access_denied": "the sign-in was refused in the dashboard",
+		"expired_token": "the code expired before the sign-in was approved, so run dekka login again",
+	} {
+		t.Run(code, func(t *testing.T) {
+			f := newFakeAPI(t).withProject()
+			browserSignIn(f, 1, func(w http.ResponseWriter) {
+				writeJSON(w, 400, `{"error":{"code":"`+code+`","message":"Over.","request_id":"req_3"}}`)
+			})
+			h := newHarness(t, f)
+			delete(h.env, "DEKKA_TOKEN")
+			h.terminal = true
+			if exit := h.run("login"); exit == 0 {
+				t.Fatal("login succeeded")
+			}
+			contains(t, h.err.String(), want)
+			if _, _, err := h.app.Store.Get(f.URL); !errors.Is(err, credentials.ErrNotFound) {
+				t.Fatalf("a key was saved: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoginRefusesASignInLinkThatIsNotAWebAddress(t *testing.T) {
+	f := newFakeAPI(t)
+	f.json("POST /v1/cli/logins", 201, `{"device_code":"d","user_code":"BCDF-GHJK","verification_url":"file:///etc/passwd","expires_in":600,"interval":3}`)
+	h := newHarness(t, f)
+	delete(h.env, "DEKKA_TOKEN")
+	h.terminal = true
+	h.app.OpenBrowser = func(string) error { t.Error("the browser was opened"); return nil }
+	if code := h.run("login"); code == 0 {
+		t.Fatal("login opened a link that is not a web address")
+	}
+	contains(t, h.err.String(), "not a web address")
 }

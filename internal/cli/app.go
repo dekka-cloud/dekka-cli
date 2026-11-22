@@ -41,6 +41,11 @@ type App struct {
 	StdinIsTerminal func() bool
 	// ReadSecret reads a line from the terminal without echoing it.
 	ReadSecret func() (string, error)
+	// OpenBrowser opens a link in the person's browser. It is nil where there
+	// is no browser to open, and dekka login then prints the link.
+	OpenBrowser func(url string) error
+	// Hostname names this machine on the page that approves a sign-in.
+	Hostname func() (string, error)
 
 	Version    string
 	HTTPClient *http.Client
@@ -66,7 +71,9 @@ func Main(version string) int {
 			b, err := term.ReadPassword(int(os.Stdin.Fd()))
 			return string(b), err
 		},
-		Version: version,
+		OpenBrowser: browserOpener(os.Getenv),
+		Hostname:    os.Hostname,
+		Version:     version,
 	}
 	return app.Run(ctx, os.Args[1:])
 }
@@ -185,7 +192,10 @@ func (a *App) newSession(apiURL, token string) (*session, error) {
 	timed := *base
 	timed.Timeout = 60 * time.Second
 	sign := api.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
-		req.Header.Set("Authorization", "Bearer "+token)
+		// Signing in through the browser starts with no key at all.
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 		req.Header.Set("User-Agent", fmt.Sprintf("dekka-cli/%s (%s/%s)", a.Version, runtime.GOOS, runtime.GOARCH))
 		return nil
 	})

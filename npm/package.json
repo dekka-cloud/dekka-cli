@@ -1,0 +1,26 @@
+{
+  "name": "dekka",
+  "version": "0.0.0",
+  "description": "Deploy and run applications on Dekka from your terminal",
+  "homepage": "https://dekka.cloud",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dekka-cloud/dekka-cli.git",
+    "directory": "npm"
+  },
+  "license": "Apache-2.0",
+  "bin": {
+    "dekka": "bin/dekka.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "checksums.txt"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
