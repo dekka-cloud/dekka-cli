@@ -281,3 +281,12 @@ func TestLoginRefusesASignInLinkThatIsNotAWebAddress(t *testing.T) {
 	}
 	contains(t, h.err.String(), "not a web address")
 }
+
+func TestAnEmptyRoleReadsAsAMember(t *testing.T) {
+	if got := article(""); got != "a member" {
+		t.Fatalf("article(\"\") = %q", got)
+	}
+	if got := article("admin"); got != "an admin" {
+		t.Fatalf("article(\"admin\") = %q", got)
+	}
+}

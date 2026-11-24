@@ -72,3 +72,17 @@ func TestAppsListNarrowsToAProjectAndEnvironment(t *testing.T) {
 	}
 	contains(t, h.err.String(), `no project is called "nope"`)
 }
+
+func TestTextFromTheAPICannotSendTerminalControls(t *testing.T) {
+	f := newFakeAPI(t)
+	f.json("GET /v1/me", 200, meJSON)
+	f.json("GET /v1/orgs/"+orgID+"/projects", 200, "["+strings.Replace(projectJSON, `"name":"shop"`, `"name":"shop\u001b]0;owned\u0007\u001b[2J\r\u009b31m"`, 1)+"]")
+	h := newHarness(t, f)
+	if code := h.run("projects", "list"); code != 0 {
+		t.Fatalf("exit %d: %s", code, h.err)
+	}
+	if out := h.out.String(); strings.ContainsAny(out, "\x1b\x07\r\u009b") {
+		t.Fatalf("control characters reached the terminal: %q", out)
+	}
+	contains(t, h.out.String(), "shop]0;owned[2J31m")
+}

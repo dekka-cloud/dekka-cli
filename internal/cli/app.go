@@ -84,6 +84,7 @@ func Main(version string) int {
 
 // Run executes one command line and returns the process exit code.
 func (a *App) Run(ctx context.Context, args []string) int {
+	a.Out, a.Err = plain(a.Out), plain(a.Err)
 	root := a.Root()
 	root.SetArgs(args)
 	root.SetIn(a.In)
