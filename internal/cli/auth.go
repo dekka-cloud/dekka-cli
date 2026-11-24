@@ -171,6 +171,9 @@ func (a *App) whoamiCmd() *cobra.Command {
 }
 
 func article(role string) string {
+	if role == "" {
+		return "a member"
+	}
 	if strings.ContainsAny(role[:1], "aeiou") {
 		return "an " + role
 	}
