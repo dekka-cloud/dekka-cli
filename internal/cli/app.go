@@ -46,6 +46,9 @@ type App struct {
 	OpenBrowser func(url string) error
 	// Hostname names this machine on the page that approves a sign-in.
 	Hostname func() (string, error)
+	// RunSSH runs the system's ssh with these arguments on this terminal. When it's nil,
+	// dekka servers ssh prints the command instead.
+	RunSSH func(args []string) error
 
 	Version    string
 	HTTPClient *http.Client
@@ -73,6 +76,7 @@ func Main(version string) int {
 		},
 		OpenBrowser: browserOpener(os.Getenv),
 		Hostname:    os.Hostname,
+		RunSSH:      runSSH,
 		Version:     version,
 	}
 	return app.Run(ctx, os.Args[1:])
@@ -114,6 +118,7 @@ func (a *App) Root() *cobra.Command {
 		a.loginCmd(), a.logoutCmd(), a.whoamiCmd(),
 		a.projectsCmd(), a.appsCmd(),
 		a.deployCmd(), a.statusCmd(), a.logsCmd(), a.rollbackCmd(),
+		a.serversCmd(), a.sshKeysCmd(),
 	)
 	return root
 }

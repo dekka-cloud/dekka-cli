@@ -18407,6 +18407,12 @@
               }
             ],
             "title": "Spec"
+          },
+          "deploy": {
+            "type": "boolean",
+            "title": "Deploy",
+            "description": "For a service, start its first deployment straight away. Send false to set its variables first, then start it with POST /v1/resources/{id}/deployments, which records it as the first deploy.",
+            "default": true
           }
         },
         "type": "object",
@@ -18429,15 +18435,21 @@
             "description": "Lowercase letters, digits and dashes"
           },
           "runtime_profile": {
-            "type": "string",
-            "enum": [
-              "firecracker-linux-v1",
-              "gvisor-system-linux-v1",
-              "kvm-linux-v1"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "firecracker-linux-v1",
+                  "gvisor-system-linux-v1",
+                  "kvm-linux-v1"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Runtime Profile",
-            "description": "The runtime profile the server runs under, fixed after creation. The size and image must belong to it.",
-            "default": "firecracker-linux-v1"
+            "description": "The runtime profile the server runs under, fixed after creation. Left out, it is the size's own profile. GET /v1/catalog/servers lists the profiles on offer, and the size and image must belong to it."
           },
           "size_id": {
             "type": "string",
@@ -22480,7 +22492,8 @@
           "egress_gb",
           "ai_tokens",
           "redis_gb_hours",
-          "volume_gb_hours"
+          "volume_gb_hours",
+          "server_traffic_gb"
         ],
         "title": "Meter"
       },
@@ -28917,7 +28930,7 @@
               "kvm-linux-v1"
             ],
             "title": "Runtime Profile",
-            "description": "firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization; kvm-linux-v1 runs it as a full KVM virtual machine on its environment's private network. The size and image must belong to it, and it is fixed after creation.",
+            "description": "The runtime profile the server runs under, fixed after creation. Left out when a server is created, it is the size's own profile. GET /v1/catalog/servers lists the profiles on offer, and the size and image must belong to it.",
             "default": "firecracker-linux-v1"
           },
           "size_id": {

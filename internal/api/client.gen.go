@@ -1221,13 +1221,14 @@ func (e MeResponseSignInMethods) Valid() bool {
 
 // Defines values for Meter.
 const (
-	AiTokens      Meter = "ai_tokens"
-	BuildMinutes  Meter = "build_minutes"
-	ComputeHours  Meter = "compute_hours"
-	EgressGb      Meter = "egress_gb"
-	RedisGbHours  Meter = "redis_gb_hours"
-	StorageGb     Meter = "storage_gb"
-	VolumeGbHours Meter = "volume_gb_hours"
+	AiTokens        Meter = "ai_tokens"
+	BuildMinutes    Meter = "build_minutes"
+	ComputeHours    Meter = "compute_hours"
+	EgressGb        Meter = "egress_gb"
+	RedisGbHours    Meter = "redis_gb_hours"
+	ServerTrafficGb Meter = "server_traffic_gb"
+	StorageGb       Meter = "storage_gb"
+	VolumeGbHours   Meter = "volume_gb_hours"
 )
 
 // Valid indicates whether the value is a known member of the Meter enum.
@@ -1242,6 +1243,8 @@ func (e Meter) Valid() bool {
 	case EgressGb:
 		return true
 	case RedisGbHours:
+		return true
+	case ServerTrafficGb:
 		return true
 	case StorageGb:
 		return true
@@ -3331,6 +3334,8 @@ type CreateRegistryCredentialRequest struct {
 // CreateResourceRequest A service spec with runtime.cron_schedule set creates a scheduled_job,
 // whatever `kind` says.
 type CreateResourceRequest struct {
+	// Deploy For a service, start its first deployment straight away. Send false to set its variables first, then start it with POST /v1/resources/{id}/deployments, which records it as the first deploy.
+	Deploy        *bool               `json:"deploy,omitempty"`
 	EnvironmentId *openapi_types.UUID `json:"environment_id,omitempty"`
 
 	// Kind The brief's resource kinds (section 25.2), plus Redis and queues.
@@ -3367,7 +3372,7 @@ type CreateServerRequest struct {
 	// RegionId Defaults to the project's region
 	RegionId *string `json:"region_id,omitempty"`
 
-	// RuntimeProfile The runtime profile the server runs under, fixed after creation. The size and image must belong to it.
+	// RuntimeProfile The runtime profile the server runs under, fixed after creation. Left out, it is the size's own profile. GET /v1/catalog/servers lists the profiles on offer, and the size and image must belong to it.
 	RuntimeProfile *CreateServerRequestRuntimeProfile `json:"runtime_profile,omitempty"`
 
 	// Shell Whether the server opens as a terminal from its page, signed in as root. Only a kvm-linux-v1 server has one, and it can be switched on and off afterwards.
@@ -3381,7 +3386,7 @@ type CreateServerRequest struct {
 	UserData *string `json:"user_data,omitempty"`
 }
 
-// CreateServerRequestRuntimeProfile The runtime profile the server runs under, fixed after creation. The size and image must belong to it.
+// CreateServerRequestRuntimeProfile defines model for CreateServerRequest.RuntimeProfile.
 type CreateServerRequestRuntimeProfile string
 
 // CreateSnapshotRequest defines model for CreateSnapshotRequest.
@@ -6040,7 +6045,7 @@ type VirtualMachineSpec struct {
 	// ImageId An image from GET /v1/catalog/servers
 	ImageId string `json:"image_id"`
 
-	// RuntimeProfile firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization; kvm-linux-v1 runs it as a full KVM virtual machine on its environment's private network. The size and image must belong to it, and it is fixed after creation.
+	// RuntimeProfile The runtime profile the server runs under, fixed after creation. Left out when a server is created, it is the size's own profile. GET /v1/catalog/servers lists the profiles on offer, and the size and image must belong to it.
 	RuntimeProfile *VirtualMachineSpecRuntimeProfile `json:"runtime_profile,omitempty"`
 
 	// Shell Whether the server opens as a terminal from its page, signed in as root. Only a kvm-linux-v1 server has one, and it can be switched on and off afterwards.
@@ -6056,7 +6061,7 @@ type VirtualMachineSpec struct {
 	UserData *string `json:"user_data,omitempty"`
 }
 
-// VirtualMachineSpecRuntimeProfile firecracker-linux-v1 runs the server as a Firecracker microVM on KVM; gvisor-system-linux-v1 runs it under gVisor with no hardware virtualization; kvm-linux-v1 runs it as a full KVM virtual machine on its environment's private network. The size and image must belong to it, and it is fixed after creation.
+// VirtualMachineSpecRuntimeProfile The runtime profile the server runs under, fixed after creation. Left out when a server is created, it is the size's own profile. GET /v1/catalog/servers lists the profiles on offer, and the size and image must belong to it.
 type VirtualMachineSpecRuntimeProfile string
 
 // VolumeStatus defines model for VolumeStatus.
